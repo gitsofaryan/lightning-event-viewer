@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "lightning-event-viewer"
+version = "0.1.0"
+description = "WebSocket viewer for Lightning Network event sequences"
+authors = ["Aryan Jain <mail.aryan.jain07@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+lnprototest = { git = "https://github.com/rustyrussell/lnprototest.git", branch = "master" }
+flask = "^2.0.0"
+flask-socketio = "^5.5.1"
+eventlet = "^0.37.0"
+pytest = "^7.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
