@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_socketio import SocketIO, emit
 from lnprototest import DummyRunner
-from model import WsConnect, WsExpectMsg, WsRawMsg
+from model import WsConnect, WsRawMsg, WsExpectMsg, WsComplete
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -14,26 +14,25 @@ app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 runner = DummyRunner(MockConfig())
 
-@socketio.on('start_sequence')
-def handle_sequence(data):
+@socketio.on('message')
+def handle_message(data):
     try:
-        events = []
-        for event in data.get('sequence', []):
-            connprivkey = event.get('connprivkey', '01' * 32)
-            etype = event.get('type')
-            if etype == 'connect':
-                events.append(WsConnect(connprivkey))
-            elif etype == 'send':
-                events.append(WsRawMsg(event['message'], connprivkey=connprivkey))
-            elif etype == 'expect':
-                events.append(WsExpectMsg(event['message'], connprivkey=connprivkey))
-            else:
-                emit('error', {'error': f'Unknown event type: {etype}'})
-                return
-        runner.run(events)
+        etype = data.get('type')
+        connprivkey = data.get('connprivkey', '01' * 32)
+        if etype == 'connect':
+            runner.run([WsConnect(connprivkey), WsExpectMsg('init', connprivkey=connprivkey)])
+        elif etype == 'send':
+            runner.run([WsRawMsg(data['message'], connprivkey=connprivkey)])
+        elif etype == 'expect':
+            runner.run([WsExpectMsg(data['message'], connprivkey=connprivkey)])
+        elif etype == 'complete':
+            runner.run([WsComplete()])
+        else:
+            emit('error', {'error': f'Unknown event type: {etype}'})
+            return
         emit('done', {'status': 'success'})
     except Exception as e:
-        logger.error(f"Sequence error: {e}")
+        logger.error(f"Error: {e}")
         emit('error', {'error': str(e)})
 
 if __name__ == '__main__':
