@@ -5,10 +5,31 @@ const API_BASE_URL = "http://localhost:5000";
 export interface MessageFlowEvent {
   sequence_id?: string;
   step?: number;
-  direction: "in" | "out";
+  direction: "in" | "out" | "meta";
   event: string;
   data: Record<string, unknown>;
   timestamp: number;
+}
+
+export type SequenceEvent =
+  | { type: "connect"; connprivkey?: string }
+  | { type: "send"; msg_name: string; connprivkey?: string }
+  | { type: "expect"; msg_name: string; connprivkey?: string }
+  | { type: "disconnect"; connprivkey?: string }
+  | { type: "done" };
+
+interface WebSocketMessage {
+  direction: "in" | "out" | "meta";
+  msg_name: string;
+  payload: {
+    time: number;
+    [key: string]: unknown;
+  };
+}
+
+interface WebSocketDoneMessage {
+  status: string;
+  time: number;
 }
 
 class WebSocketService {
@@ -16,6 +37,7 @@ class WebSocketService {
   private messageHandlers: ((event: MessageFlowEvent) => void)[] = [];
   private errorHandlers: ((error: { error: string }) => void)[] = [];
   private completeHandlers: (() => void)[] = [];
+  private connectionHandlers: ((connected: boolean) => void)[] = [];
   private isConnected: boolean = false;
 
   public onMessage(handler: (event: MessageFlowEvent) => void): () => void {
@@ -41,13 +63,21 @@ class WebSocketService {
     };
   }
 
+  public onConnection(handler: (connected: boolean) => void): () => void {
+    this.connectionHandlers.push(handler);
+    return () => {
+      this.connectionHandlers = this.connectionHandlers.filter(
+        (h) => h !== handler
+      );
+    };
+  }
+
   public async connect(): Promise<void> {
     try {
       if (this.isConnected && this.socket?.connected) {
         return;
       }
 
-      // Connect to Socket.IO server
       this.socket = io(API_BASE_URL, {
         transports: ["websocket", "polling"],
         autoConnect: true,
@@ -59,90 +89,102 @@ class WebSocketService {
         this.socket.on("connect", () => {
           console.log("Socket.IO connection established");
           this.isConnected = true;
+          this.connectionHandlers.forEach((handler) => handler(true));
           resolve();
         });
 
-        this.socket.on("message", (data: MessageFlowEvent) => {
-          console.log("Received message:", data);
-          this.messageHandlers.forEach((handler) => handler(data));
+        // Handle Lightning Network protocol messages
+        this.socket.on("message", (data: WebSocketMessage) => {
+          console.log("Lightning message event:", data);
+          const event: MessageFlowEvent = {
+            direction: data.direction,
+            event: data.msg_name,
+            data: data.payload,
+            timestamp: data.payload.time,
+          };
+          this.messageHandlers.forEach((handler) => handler(event));
+        });
+
+        this.socket.on("done", (data: WebSocketDoneMessage) => {
+          console.log("Operation completed:", data);
+          const event: MessageFlowEvent = {
+            direction: "out",
+            event: "done",
+            data: { ...data },
+            timestamp: data.time,
+          };
+          this.messageHandlers.forEach((handler) => handler(event));
+
+          // Call complete handlers if sequence is complete
+          if (data.status === "complete") {
+            this.completeHandlers.forEach((handler) => handler());
+          }
         });
 
         this.socket.on("error", (error: { error: string }) => {
-          console.error("Socket.IO error:", error);
+          console.error("Lightning protocol error:", error);
           this.errorHandlers.forEach((handler) => handler(error));
-        });
-
-        this.socket.on("sequence_complete", (data: unknown) => {
-          console.log("Sequence complete:", data);
-          this.completeHandlers.forEach((handler) => handler());
         });
 
         this.socket.on("disconnect", () => {
           console.log("Socket.IO disconnected");
           this.isConnected = false;
+          this.connectionHandlers.forEach((handler) => handler(false));
         });
 
         this.socket.on("connect_error", (error: Error) => {
           console.error("Socket.IO connection error:", error);
           this.isConnected = false;
+          this.connectionHandlers.forEach((handler) => handler(false));
           reject(error);
         });
       });
     } catch (error) {
       console.error("Error connecting to Socket.IO:", error);
       this.isConnected = false;
+      this.connectionHandlers.forEach((handler) => handler(false));
       throw error;
     }
   }
 
-  public async runConnect(nodeId: string = "03"): Promise<void> {
-    try {
-      // Call the /connect endpoint to trigger Vincent's sequence
-      const response = await fetch(`${API_BASE_URL}/connect`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ node_id: nodeId }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to run connect sequence");
-      }
-
-      const data = await response.json();
-      console.log("Connect sequence started:", data);
-    } catch (error) {
-      console.error("Error running connect sequence:", error);
-      throw error;
+  // Establish Lightning Network connection
+  public async connectLightning(connprivkey?: string): Promise<void> {
+    if (!this.socket?.connected) {
+      throw new Error("WebSocket not connected");
     }
+
+    console.log("Connecting to Lightning Network...");
+    this.runSequence([{ type: "connect", connprivkey: connprivkey || "02" }]);
   }
 
+  // Send raw message
   public async sendRawMessage(
     type: string,
-    content: Record<string, unknown> = {}
+    connprivkey?: string
   ): Promise<void> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/rawmsg`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ type, content }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to send raw message");
-      }
-
-      const data = await response.json();
-      console.log("Raw message sent:", data);
-    } catch (error) {
-      console.error("Error sending raw message:", error);
-      throw error;
+    if (!this.socket?.connected) {
+      throw new Error("WebSocket not connected");
     }
+
+    console.log("Sending raw message:", { type });
+    this.runSequence([
+      {
+        type: "send",
+        msg_name: type,
+        connprivkey: connprivkey || "02",
+      },
+    ]);
+  }
+
+  public runSequence(events: SequenceEvent[]): void {
+    if (!this.socket?.connected) {
+      throw new Error("WebSocket not connected");
+    }
+    this.socket.emit("sequence", events);
+  }
+
+  public isSocketConnected(): boolean {
+    return this.isConnected && this.socket?.connected === true;
   }
 
   public disconnect(): void {
@@ -151,10 +193,7 @@ class WebSocketService {
       this.socket = null;
     }
     this.isConnected = false;
-  }
-
-  public isSocketConnected(): boolean {
-    return this.isConnected && this.socket?.connected === true;
+    this.connectionHandlers.forEach((handler) => handler(false));
   }
 }
 

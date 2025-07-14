@@ -1,5 +1,4 @@
-import { webSocketService, MessageFlowEvent } from "./websocket";
-import api from "./api";
+import { webSocketService, MessageFlowEvent, SequenceEvent } from "./websocket";
 
 export interface MessageResponse {
   messages: MessageFlowEvent[];
@@ -11,65 +10,32 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
-// API Client for minimal endpoints
+// Simplified WebSocket API Client - Connect establishes Lightning connection automatically
 export const apiClient = {
-  // Connect endpoint - runs Vincent's 7-step sequence
-  async connect(): Promise<MessageResponse> {
-    try {
-      const response = await api.connect();
-      return {
-        messages: [
-          {
-            direction: "out" as const,
-            event: "sequence_started",
-            data: {
-              status: response.status,
-              sequence_id: response.sequence_id,
-              node_id: response.node_id,
-              steps_completed: response.steps_completed,
-            },
-            timestamp: Date.now(),
-          },
-        ],
-      };
-    } catch (error) {
-      console.error("Error in connect:", error);
-      throw error;
-    }
-  },
-
-  // Send raw message
-  async sendMessage(
-    type: string,
-    content: Record<string, unknown> = {}
-  ): Promise<MessageResponse> {
-    try {
-      await api.sendMessage(type, content);
-      return {
-        messages: [
-          {
-            direction: "out" as const,
-            event: "raw_message",
-            data: { type, content },
-            timestamp: Date.now(),
-          },
-        ],
-      };
-    } catch (error) {
-      console.error("Error sending message:", error);
-      throw error;
-    }
-  },
-
-  // WebSocket management
+  // Connect to WebSocket server (automatically establishes Lightning connection)
   async connectWebSocket(): Promise<void> {
     return webSocketService.connect();
   },
 
-  async runConnectSequence(nodeId: string = "03"): Promise<void> {
-    return webSocketService.runConnect(nodeId);
+  // Connect to Lightning Network (happens automatically when WebSocket connects)
+  async connectLightning(): Promise<void> {
+    return webSocketService.connectLightning();
   },
 
+  // Send raw message (auto-handles BOLT01 message types like ping->pong)
+  async sendMessage(
+    type: string,
+    content: Record<string, unknown> = {}
+  ): Promise<void> {
+    return webSocketService.sendRawMessage(type, content);
+  },
+
+  // Check if WebSocket is connected
+  isConnected(): boolean {
+    return webSocketService.isSocketConnected();
+  },
+
+  // Disconnect WebSocket
   disconnect(): void {
     return webSocketService.disconnect();
   },
@@ -85,5 +51,42 @@ export const apiClient = {
 
   onComplete(handler: () => void): () => void {
     return webSocketService.onComplete(handler);
+  },
+
+  onConnection(handler: (connected: boolean) => void): () => void {
+    return webSocketService.onConnection(handler);
+  },
+
+  runSequence(events: SequenceEvent[]): void {
+    return webSocketService.runSequence(events);
+  },
+
+  // Simplified connect method - just connects WebSocket and Lightning happens automatically
+  async connect(): Promise<MessageResponse> {
+    try {
+      await this.connectWebSocket();
+      return {
+        messages: [
+          {
+            direction: "out" as const,
+            event: "connected",
+            data: {
+              status: "connected",
+              timestamp: Date.now(),
+            },
+            timestamp: Date.now(),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error("Error in connect:", error);
+      throw error;
+    }
+  },
+
+  // Legacy method for backward compatibility
+  async runConnectSequence(): Promise<void> {
+    // Now just connects - no separate sequence needed
+    return this.connectWebSocket();
   },
 };

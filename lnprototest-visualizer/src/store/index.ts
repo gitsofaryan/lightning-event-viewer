@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { apiClient } from "../api/client";
-import { MessageFlowEvent } from "../api/websocket";
+import { MessageFlowEvent, SequenceEvent } from "../api/websocket";
 
 export type MessageCategory =
   | "connection"
@@ -33,6 +33,7 @@ interface State {
   messages: MessageFlowEvent[];
   selectedMessage: AvailableMessage | null;
   availableMessages: AvailableMessage[];
+  runSequence: (events: SequenceEvent[]) => void;
 
   // Actions
   connect: () => Promise<void>;
@@ -192,15 +193,16 @@ export const useStore = create<State>((set) => ({
   selectedMessage: null,
   availableMessages: defaultAvailableMessages,
 
+  runSequence: (events) => {
+    apiClient.runSequence(events);
+  },
+
   connect: async () => {
     try {
       set({ connectionState: "connecting" });
 
       // First connect WebSocket
       await apiClient.connectWebSocket();
-
-      // Then run the connect sequence
-      await apiClient.runConnectSequence();
 
       set({
         connected: true,
@@ -236,7 +238,6 @@ export const useStore = create<State>((set) => ({
     try {
       set({ connectionState: "connecting" });
       await apiClient.connectWebSocket();
-      await apiClient.runConnectSequence();
 
       set({
         connected: true,
