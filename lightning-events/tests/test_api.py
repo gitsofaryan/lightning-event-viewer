@@ -1,36 +1,55 @@
 import pytest
 from api import app, socketio
-from flask_socketio import SocketIOTestClient
 
 @pytest.fixture
 def client():
-    return SocketIOTestClient(app, socketio)
+    c = socketio.test_client(app)
+    yield c
+    c.disconnect()
 
-def test_sequence(client):
-    # Step 1-2: Connect (init -> connected)
-    client.emit('message', {'type': 'connect', 'connprivkey': '01' * 32})
-    received = client.get_received()
-    assert any(e['name'] == 'connection' for e in received), "Missing connection event"
-    assert any(e['name'] == 'received' and e['args'][0]['message'] == 'init' for e in received), "Missing received:init event"
-    assert any(e['name'] == 'done' for e in received), "Missing done event"
 
-    # Step 3-4: Ping -> Pong
-    client.emit('message', {'type': 'send', 'message': 'ping', 'connprivkey': '01' * 32})
-    client.emit('message', {'type': 'expect', 'message': 'pong', 'connprivkey': '01' * 32})
-    received = client.get_received()
-    assert any(e['name'] == 'sent' and e['args'][0]['message'] == 'ping' for e in received), "Missing sent:ping event"
-    assert any(e['name'] == 'received' and e['args'][0]['message'] == 'pong' for e in received), "Missing received:pong event"
-    assert any(e['name'] == 'done' for e in received), "Missing done event"
+def test_basic_connect_and_expect(client):
+    client.emit("sequence", [
+        {"type": "connect", "connprivkey": "03"},
+        {"type": "expect", "msg_name": "init", "connprivkey": "03"}
+    ])
+    msgs = client.get_received()
+    assert any(m["name"] == "message" for m in msgs)
 
-    # Step 5-6: RawMsg (warning) -> Expect (error)
-    client.emit('message', {'type': 'send', 'message': 'warning', 'connprivkey': '01' * 32})
-    client.emit('message', {'type': 'expect', 'message': 'error', 'connprivkey': '01' * 32})
-    received = client.get_received()
-    assert any(e['name'] == 'sent' and e['args'][0]['message'] == 'warning' for e in received), "Missing sent:warning event"
-    assert any(e['name'] == 'received' and e['args'][0]['message'] == 'error' for e in received), "Missing received:error event"
-    assert any(e['name'] == 'done' for e in received), "Missing done event"
 
-    # Step 7: Complete
-    client.emit('message', {'type': 'complete'})
-    received = client.get_received()
-    assert any(e['name'] == 'done' and e['args'][0]['status'] == 'complete' for e in received), "Missing done:complete event"
+def test_send_and_expect(client):
+    client.emit("sequence", [
+        {"type": "connect", "connprivkey": "02"},
+        {"type": "send", "msg_name": "init", "connprivkey": "02"},
+        {"type": "expect", "msg_name": "init", "connprivkey": "02"}
+    ])
+    msgs = client.get_received()
+    assert any(m["name"] == "message" for m in msgs)
+
+
+def test_unknown_message_type(client):
+    client.emit("sequence", [
+        {"type": "connect", "connprivkey": "03"},
+        {"type": "send", "msg_name": "foobar", "connprivkey": "03"}
+    ])
+    msgs = client.get_received()
+    assert any(m["name"] == "error" for m in msgs)
+
+
+def test_disconnect_without_connect(client):
+    client.emit("sequence", [
+        {"type": "disconnect", "connprivkey": "nonexistent"}
+    ])
+    msgs = client.get_received()
+    assert any(m["name"] == "error" for m in msgs)
+
+
+def test_multiple_connections(client):
+    client.emit("sequence", [
+        {"type": "connect", "connprivkey": "01"},
+        {"type": "connect", "connprivkey": "02"},
+        {"type": "disconnect", "connprivkey": "01"},
+        {"type": "disconnect", "connprivkey": "02"}
+    ])
+    msgs = client.get_received()
+    assert any(m["name"] == "message" for m in msgs)

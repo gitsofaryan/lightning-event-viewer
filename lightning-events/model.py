@@ -1,47 +1,51 @@
-from lnprototest import Connect, ExpectMsg, RawMsg, Event
 from flask_socketio import emit
-import logging
-import time
-
-logger = logging.getLogger(__name__)
-
-class MockConn:
-    def __init__(self, privkey):
-        self.privkey = privkey
-        self.must_not_events = []  
+from lnprototest import Connect, RawMsg, ExpectMsg, Disconnect
+from lnprototest.errors import SpecFileError
 
 class WsConnect(Connect):
-    def action(self, runner=None) -> bool:
+    def action(self, runner):
         super().action(runner)
-        emit('connection', {'connprivkey': self.connprivkey, 'time': int(time.time() * 1000)})
-        logger.info(f"Connected: {self.connprivkey}")
-        return True
-
-class WsExpectMsg(ExpectMsg):
-    def find_conn(self, runner) -> "MockConn":
-        return MockConn(self.connprivkey)
-
-    def action(self, runner=None) -> bool:
-        super().action(runner)
-        data = {'message': self.msgtype.name, 'time': int(time.time() * 1000)}
-        emit('received', data)
-        logger.info(f"Expected: {data}")
+        emit("message", {
+            "direction": "connect",
+            "msg_name": "init",
+            "connprivkey": self.connprivkey
+        })
         return True
 
 class WsRawMsg(RawMsg):
-    def find_conn(self, runner) -> "MockConn":
-        return MockConn(self.connprivkey)
-
-    def action(self, runner=None) -> bool:
-        super().action(runner)
-        data = {'message': self.message, 'time': int(time.time() * 1000)}
-        emit('sent', data)
-        logger.info(f"Sent: {data}")
+    def action(self, runner):
+        try:
+            super().action(runner)
+            emit("message", {
+                "direction": "out",
+                "msg_name": self.msgtype.name,
+                "payload": getattr(self, "payload", b"").hex()
+            })
+        except Exception as e:
+            emit("error", {"error": str(e)})
         return True
 
-class WsComplete(Event):
-    def action(self, runner=None) -> bool:
-        super().action(runner)
-        emit('done', {'status': 'complete', 'time': int(time.time() * 1000)})
-        logger.info("Sequence complete")
+class WsExpectMsg(ExpectMsg):
+    def action(self, runner):
+        try:
+            super().action(runner)
+            emit("message", {
+                "direction": "in",
+                "msg_name": self.msgtype.name,
+                "expected_fields": list(self.kwargs.keys())
+            })
+        except Exception as e:
+            emit("error", {"error": str(e)})
+        return True
+
+class WsDisconnect(Disconnect):
+    def action(self, runner):
+        try:
+            super().action(runner)
+            emit("message", {
+                "direction": "disconnect",
+                "connprivkey": self.connprivkey
+            })
+        except SpecFileError as e:
+            emit("error", {"error": str(e)})
         return True
