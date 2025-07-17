@@ -13,13 +13,25 @@ class WsConnect(Connect):
         return True
 
 class WsRawMsg(RawMsg):
+    def __init__(self, msg_name, connprivkey, *args, **kwargs):
+        # Initialize RawMsg with correct message type
+        from lnprototest.namespace import namespace
+        msgtype = namespace().get_msgtype(msg_name)
+        if not msgtype:
+            raise SpecFileError(self, f"Unknown msgtype {msg_name}")
+        # Store for later use in emit
+        self.msgtype = msgtype
+        self.connprivkey = connprivkey
+        self.message = msgtype  # For compatibility with RawMsg
+        super().__init__(msgtype, connprivkey, *args, **kwargs)
+
     def action(self, runner):
         try:
             super().action(runner)
             emit("message", {
                 "direction": "out",
                 "msg_name": self.msgtype.name,
-                "payload": getattr(self, "payload", b"").hex()
+                "payload": getattr(self, "payload", b"").hex() if hasattr(self, "payload") else ""
             })
         except Exception as e:
             emit("error", {"error": str(e)})

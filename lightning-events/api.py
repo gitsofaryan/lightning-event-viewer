@@ -15,23 +15,41 @@ class DummyConfig:
 def run_sequence(events):
     runner = DummyRunner(DummyConfig())
     mapped = []
-    for e in events:
-        t = e.get("type")
-        if t == "connect":
-            mapped.append(WsConnect(e["connprivkey"]))
-        elif t == "send":
-            mapped.append(WsRawMsg(e["msg_name"], e["connprivkey"]))
-        elif t == "expect":
-            mapped.append(WsExpectMsg(e["msg_name"], e["connprivkey"]))
-        elif t == "disconnect":
-            mapped.append(WsDisconnect(e["connprivkey"]))
-        else:
-            emit("error", {"error": f"Unknown type {t}"})
-            return
+    try:
+        for e in events:
+            t = e.get("type")
+            # Validate required fields for each event type
+            if t == "connect":
+                if "connprivkey" not in e:
+                    emit("error", {"error": "Missing 'connprivkey' for connect event"})
+                    return
+                mapped.append(WsConnect(e["connprivkey"]))
+            elif t == "send":
+                if "msg_name" not in e or "connprivkey" not in e:
+                    emit("error", {"error": "Missing 'msg_name' or 'connprivkey' for send event"})
+                    return
+                mapped.append(WsRawMsg(e["msg_name"], e["connprivkey"]))
+            elif t == "expect":
+                if "msg_name" not in e or "connprivkey" not in e:
+                    emit("error", {"error": "Missing 'msg_name' or 'connprivkey' for expect event"})
+                    return
+                mapped.append(WsExpectMsg(e["msg_name"], e["connprivkey"]))
+            elif t == "disconnect":
+                if "connprivkey" not in e:
+                    emit("error", {"error": "Missing 'connprivkey' for disconnect event"})
+                    return
+                mapped.append(WsDisconnect(e["connprivkey"]))
+            else:
+                emit("error", {"error": f"Unknown type {t}"})
+                return
+    except SpecFileError as exc:
+        emit("error", {"error": str(exc)})
+        return
     try:
         runner.run(mapped)
     except SpecFileError as exc:
         emit("error", {"error": str(exc)})
+
 
 if __name__ == "__main__":
     socketio.run(app, debug=True)
