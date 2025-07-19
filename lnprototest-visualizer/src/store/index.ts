@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { apiClient } from "../api/client";
-import { MessageFlowEvent, SequenceEvent } from "../api/websocket";
+import { MessageFlowEvent } from "../api/websocket";
 
 export type MessageCategory =
   | "connection"
@@ -33,7 +33,6 @@ interface State {
   messages: MessageFlowEvent[];
   selectedMessage: AvailableMessage | null;
   availableMessages: AvailableMessage[];
-  runSequence: (events: SequenceEvent[]) => void;
 
   // Actions
   connect: () => Promise<void>;
@@ -193,16 +192,46 @@ export const useStore = create<State>((set) => ({
   selectedMessage: null,
   availableMessages: defaultAvailableMessages,
 
-  runSequence: (events) => {
-    apiClient.runSequence(events);
-  },
-
   connect: async () => {
     try {
       set({ connectionState: "connecting" });
 
       // First connect WebSocket
       await apiClient.connectWebSocket();
+
+      // Attach error handler to push errors to messages
+      apiClient.onError((error) => {
+        set((state) => ({
+          messages: [
+            ...state.messages,
+            {
+              direction: "in",
+              event: "error",
+              data: { error: error.error },
+              timestamp: Date.now(),
+            },
+          ],
+        }));
+      });
+
+      // Attach message handler to log every backend emit as a raw event
+      apiClient.onMessage((msg) => {
+        console.log("RECEIVED WS MESSAGE:", msg);
+        set((state) => ({
+          messages: [
+            ...state.messages,
+            {
+              direction: msg.direction || 'in',
+              event: msg.msg_name || msg.event || 'raw',
+              data: msg.payload || msg.data || msg,
+              timestamp: msg.timestamp || Date.now(),
+            },
+          ],
+        }));
+      });
+
+      // Then run the connect sequence
+      await apiClient.runConnectSequence();
 
       set({
         connected: true,
@@ -219,6 +248,18 @@ export const useStore = create<State>((set) => ({
 
   sendMessage: async (type, content) => {
     try {
+      // Add outgoing message (arrow from runner to ldk)
+      set((state) => ({
+        messages: [
+          ...state.messages,
+          {
+            direction: "out",
+            event: type,
+            data: content || {},
+            timestamp: Date.now(),
+          },
+        ],
+      }));
       await apiClient.sendMessage(type, content || {});
     } catch (error) {
       console.error("Send message error:", error);
@@ -238,6 +279,7 @@ export const useStore = create<State>((set) => ({
     try {
       set({ connectionState: "connecting" });
       await apiClient.connectWebSocket();
+      await apiClient.runConnectSequence();
 
       set({
         connected: true,

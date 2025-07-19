@@ -38,6 +38,7 @@ const MessageLog: React.FC = () => {
         if (autoScroll && messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
+        console.log('MessageLog: messages updated', messages);
     }, [messages, autoScroll]);
 
     const handleDownload = () => {

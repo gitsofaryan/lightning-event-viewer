@@ -17,6 +17,10 @@ const MessageDetails: React.FC = () => {
     connected: state.connected
   }));
 
+  React.useEffect(() => {
+    console.log('MessageDetails: selectedMessage', selectedMessage, 'messages', messages);
+  }, [selectedMessage, messages]);
+
   const messageStats = {
     total: messages.length,
     outgoing: messages.filter(m => m.direction === 'out').length,
