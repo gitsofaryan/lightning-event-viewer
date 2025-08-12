@@ -126,7 +126,7 @@ const initialNodes: Node<CustomNodeData>[] = [
 const MessageFlowComponent: React.FC = () => {
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-    const { connected } = useStore();
+    const { connected, messages } = useStore();
 
     // Base connection edge (no arrows, just a line)
     const baseConnectionEdge: Edge = useMemo(() => ({
@@ -206,7 +206,7 @@ const MessageFlowComponent: React.FC = () => {
         }
     }, [connected, baseConnectionEdge, setEdges]);
 
-    // Handle WebSocket events and create persistent message arrows with vertical stacking
+    // Handle WebSocket events by adding them to the store
     useEffect(() => {
         const handleMessage = (event: MessageFlowEvent) => {
             try {
@@ -215,156 +215,8 @@ const MessageFlowComponent: React.FC = () => {
                     console.warn('Received invalid event:', event);
                     return;
                 }
-
-                const source = event.direction === 'out' ? 'runner' : 'ldk';
-                const target = event.direction === 'out' ? 'ldk' : 'runner';
-                const messageId = `message-${event.sequence_id || 'raw'}-${event.step || Date.now()}-${event.direction}`;
-
-                // Create arrow direction indicator and message label
-                let arrowDirection, messageLabel;
-
-                if (event.direction === 'out') {
-                    arrowDirection = '-->';
-                    // For outgoing messages, show the actual message type
-                    messageLabel = event.event === 'Msg' ?
-                        (event.data?.msgtype || event.event) :
-                        event.event;
-                } else {
-                    arrowDirection = '<--';
-                    // For incoming messages, show what we expect/receive
-                    if (event.event === 'ExpectMsg') {
-                        messageLabel = event.data?.msgtype || 'Expected';
-                    } else if (event.event === 'RawMsg') {
-                        messageLabel = event.data?.msgtype || 'RawMsg';
-                    } else {
-                        messageLabel = event.event;
-                    }
-                }
-
-                // Handle special case for RawMsg - could be incoming or outgoing
-                if (event.event === 'RawMsg') {
-                    // Check if this is actually an incoming message from LDK
-                    const isIncomingRaw = event.data?.fromLDK || event.data?.received;
-                    if (isIncomingRaw) {
-                        // Override direction for incoming raw messages
-                        const actualSource = 'ldk';
-                        const actualTarget = 'runner';
-                        arrowDirection = '<--';
-                        messageLabel = `${event.data?.msgtype || 'RawMsg'}`;
-
-                        const correctedMessageId = `message-${event.sequence_id || 'raw'}-${event.step || Date.now()}-in`;
-
-                        // Create corrected message edge for incoming raw message
-                        const correctedMessageEdge: Edge = {
-                            id: correctedMessageId,
-                            source: actualSource,
-                            target: actualTarget,
-                            type: 'straight',
-                            animated: false,
-                            style: {
-                                stroke: '#f59e0b', // Orange for incoming
-                                strokeWidth: 2,
-                                strokeDasharray: '5 5', // Dashed for responses
-                            },
-                            markerEnd: {
-                                type: MarkerType.Arrow,
-                                color: '#f59e0b',
-                                width: 12,
-                                height: 12,
-                            },
-                            label: `${event.step ? `(${event.step})` : ''} ${messageLabel} ${arrowDirection}`,
-                            labelStyle: {
-                                fontSize: '8px',
-                                fontWeight: 600,
-                                color: 'white',
-                                padding: '1px 3px',
-                                borderRadius: '3px',
-                                background: '#f59e0b',
-                                whiteSpace: 'nowrap' as const,
-                            },
-                            labelBgStyle: {
-                                fill: 'transparent',
-                                fillOpacity: 0,
-                            },
-                            sourceHandle: `right-${(edges.filter(e => e.id.startsWith('message-') && e.data?.direction === 'in').length) % 10}`,
-                            targetHandle: `left-${(edges.filter(e => e.id.startsWith('message-') && e.data?.direction === 'in').length) % 10}`,
-                            data: {
-                                step: event.step,
-                                direction: 'in',
-                                messageType: messageLabel,
-                                stackIndex: (edges.filter(e => e.id.startsWith('message-') && e.data?.direction === 'in').length) % 10
-                            }
-                        };
-
-                        setEdges((prevEdges) => [...prevEdges, correctedMessageEdge]);
-                        useStore.getState().addMessage({ ...event, direction: 'in' });
-                        return;
-                    }
-                }
-
-                const stepLabel = event.step ? `(${event.step})` : '';
-
-                // Calculate proper stacking for arrows
-                const existingMessageEdges = edges.filter(edge => edge.id.startsWith('message-'));
-
-                // Separate stacking for incoming vs outgoing
-                const outgoingCount = existingMessageEdges.filter(edge => edge.data?.direction === 'out').length;
-                const incomingCount = existingMessageEdges.filter(edge => edge.data?.direction === 'in').length;
-
-                const actualStackIndex = event.direction === 'out' ? outgoingCount % 10 : incomingCount % 10;
-
-                const messageEdge: Edge = {
-                    id: messageId,
-                    source,
-                    target,
-                    type: 'straight', // Use straight edges for cleaner arrow stacking
-                    animated: false,
-                    style: {
-                        stroke: event.direction === 'out' ? '#3b82f6' : '#f59e0b',
-                        strokeWidth: 2,
-                        strokeDasharray: event.direction === 'in' ? '5 5' : '0', // Dashed for responses
-                    },
-                    markerEnd: {
-                        type: MarkerType.Arrow,
-                        color: event.direction === 'out' ? '#3b82f6' : '#f59e0b',
-                        width: 12,
-                        height: 12,
-                    },
-                    label: `${stepLabel} ${messageLabel} ${arrowDirection}`,
-                    labelStyle: {
-                        fontSize: '8px',
-                        fontWeight: 600,
-                        color: 'white',
-                        padding: '1px 3px',
-                        borderRadius: '3px',
-                        background: event.direction === 'out' ? '#3b82f6' : '#f59e0b',
-                        whiteSpace: 'nowrap' as const,
-                    },
-                    labelBgStyle: {
-                        fill: 'transparent',
-                        fillOpacity: 0,
-                    },
-                    // Use different handles for each arrow to create proper stacking
-                    sourceHandle: event.direction === 'out' ? `right-${actualStackIndex}` : `left-${actualStackIndex}`,
-                    targetHandle: event.direction === 'out' ? `left-${actualStackIndex}` : `right-${actualStackIndex}`,
-                    data: {
-                        step: event.step,
-                        direction: event.direction,
-                        messageType: messageLabel,
-                        stackIndex: actualStackIndex
-                    }
-                };
-
-                // Add the message edge to existing edges (keep all previous messages)
-                setEdges((prevEdges) => {
-                    // Keep all existing edges and add the new one
-                    return [...prevEdges, messageEdge];
-                });
-
-                // Add message to store
+                // Add message to store, which will trigger the edge rendering effect
                 useStore.getState().addMessage(event);
-
-                // No timeout removal - keep all arrows persistent
             } catch (err) {
                 console.error('Error handling message:', err);
             }
@@ -381,147 +233,73 @@ const MessageFlowComponent: React.FC = () => {
             unsubscribeMessage();
             unsubscribeError();
         };
-    }, [edges, setEdges]);
+    }, []); // No dependencies, this should only run once
 
-    // Add this effect to visualize every message in the store as an arrow
+    // Consolidated effect to visualize every message in the store as an arrow
     useEffect(() => {
-        setEdges((prevEdges) => {
-            // Only add new edges for messages that don't already have an edge
-            const existingIds = new Set(prevEdges.map(e => e.id));
-            let outStack = 0;
-            let inStack = 0;
-            const newEdges = useStore.getState().messages.map((event, idx) => {
-                const edgeId = `message-${event.timestamp}-${event.event}-${idx}`;
-                if (existingIds.has(edgeId)) return null;
-                let edgeColor = event.direction === 'out' ? '#3b82f6' : '#f59e0b';
-                let markerColor = event.event === 'error' ? '#dc2626' : edgeColor;
-                let sourceHandle = 'right-0';
-                let targetHandle = 'left-0';
-                let label = '';
-                let labelStyle = {
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color: '#fff',
-                    padding: '2px 8px',
-                    borderRadius: '8px',
-                    background: edgeColor,
-                    border: '1px solid ' + edgeColor,
-                    whiteSpace: 'nowrap',
-                    transform: `translateY(${idx * 24 - 24}px)`, // Offset each label vertically
-                };
-                let edgeStyle = {
-                    stroke: edgeColor,
-                    strokeWidth: 2,
-                    strokeDasharray: '0',
-                };
-                if (event.direction === 'out') {
-                    sourceHandle = `right-${outStack % 10}`;
-                    targetHandle = `left-${outStack % 10}`;
-                    outStack++;
-                    // Badge for outgoing message name
-                    label = `${event.event}`;
-                } else {
-                    sourceHandle = `left-${inStack % 10}`;
-                    targetHandle = `right-${inStack % 10}`;
-                    inStack++;
-                    // Badge for error/incoming
-                    if (event.event === 'error') {
-                        edgeColor = '#dc2626';
-                        markerColor = '#dc2626';
-                        label = `Error: ${event.data?.error ? String(event.data.error).slice(0, 32) + (String(event.data.error).length > 32 ? '…' : '') : 'Unknown error'}`;
-                        labelStyle.background = '#dc2626';
-                        labelStyle.border = '1px solid #dc2626';
-                        labelStyle.color = '#fff';
-                        edgeStyle.stroke = '#dc2626';
-                        edgeStyle.strokeDasharray = '6 3';
-                    } else {
-                        label = `${event.event}`;
-                    }
-                }
-                return {
-                    id: edgeId,
-                    source: event.direction === 'out' ? 'runner' : 'ldk',
-                    target: event.direction === 'out' ? 'ldk' : 'runner',
-                    type: 'straight',
-                    animated: false,
-                    style: edgeStyle,
-                    markerEnd: {
-                        type: MarkerType.Arrow,
-                        color: markerColor,
-                        width: 12,
-                        height: 12,
-                    },
-                    label,
-                    labelStyle,
-                    labelBgStyle: {
-                        fill: 'transparent',
-                        fillOpacity: 0,
-                    },
-                    sourceHandle,
-                    targetHandle,
-                    data: {
-                        step: event.step,
-                        direction: event.direction,
-                        messageType: event.event,
-                        isError: event.event === 'error',
-                    }
-                };
-            }).filter(Boolean);
-            return [baseConnectionEdge, ...prevEdges.filter(e => e.id === 'base-connection'), ...newEdges];
-        });
-    }, [useStore.getState().messages]);
+        const newEdges: Edge<MessageFlowEvent>[] = [baseConnectionEdge];
 
-    // Sequence diagram edge logic
-    useEffect(() => {
-        const messages = useStore.getState().messages;
-        const newEdges: Edge<any>[] = [];
-
-        // Outgoing (Runner -> LDK)
         let outCount = 0;
-        messages.forEach((msg, idx) => {
-            if (msg.direction === 'out') {
-                newEdges.push({
-                    id: `edge-out-${outCount}`,
-                    source: 'runner',
-                    target: 'ldk',
-                    sourceHandle: `right-${outCount}`,
-                    targetHandle: `left-${outCount}`,
-                    label: String(msg.event),
-                    labelStyle: { background: '#3b82f6', color: '#fff', fontWeight: 700 },
-                    type: 'straight',
-                    animated: false,
-                    style: { stroke: '#3b82f6', strokeWidth: 2 },
-                    markerEnd: { type: MarkerType.Arrow, color: '#3b82f6', width: 12, height: 12 },
-                    data: msg,
-                });
-                outCount++;
-            }
-        });
+        let inCount = 0;
 
-        // Incoming error (LDK -> Runner)
-        let errorCount = 0;
-        messages.forEach((msg, idx) => {
-            if (msg.event === 'error' && msg.direction === 'in') {
-                newEdges.push({
-                    id: `edge-error-${errorCount}`,
-                    source: 'ldk',
-                    target: 'runner',
-                    sourceHandle: `left-${errorCount}`,
-                    targetHandle: `right-${errorCount}`,
-                    label: String(msg.data?.error || 'Error'),
-                    labelStyle: { background: '#dc2626', color: '#fff', fontWeight: 700 },
-                    type: 'straight',
-                    animated: false,
-                    style: { stroke: '#dc2626', strokeWidth: 2, strokeDasharray: '6 3' },
-                    markerEnd: { type: MarkerType.Arrow, color: '#dc2626', width: 12, height: 12 },
-                    data: msg,
-                });
-                errorCount++;
+        messages.forEach((msg, index) => {
+            const direction = msg.direction;
+            const event = msg.event;
+            let id, source, target, sourceHandle, targetHandle, label, style, markerEnd, data;
+
+            if (direction === 'out') {
+                id = `edge-out-${index}`;
+                source = 'runner';
+                target = 'ldk';
+                sourceHandle = `right-${outCount % 20}`;
+                targetHandle = `left-${outCount % 20}`;
+                label = String(event);
+                style = { stroke: '#3b82f6', strokeWidth: 2 };
+                markerEnd = { type: MarkerType.Arrow, color: '#3b82f6', width: 12, height: 12 };
+                data = msg;
+                outCount++;
+            } else { // 'in'
+                if (event === 'error') {
+                    id = `edge-error-${index}`;
+                    source = 'ldk';
+                    target = 'runner';
+                    sourceHandle = `left-${inCount % 20}`;
+                    targetHandle = `right-${inCount % 20}`;
+                    label = String(msg.data?.error || 'Error');
+                    style = { stroke: '#dc2626', strokeWidth: 2, strokeDasharray: '6 3' };
+                    markerEnd = { type: MarkerType.Arrow, color: '#dc2626', width: 12, height: 12 };
+                    data = msg;
+                } else {
+                    id = `edge-in-${index}`;
+                    source = 'ldk';
+                    target = 'runner';
+                    sourceHandle = `left-${inCount % 20}`;
+                    targetHandle = `right-${inCount % 20}`;
+                    label = String(event);
+                    style = { stroke: '#f59e0b', strokeWidth: 2 };
+                    markerEnd = { type: MarkerType.Arrow, color: '#f59e0b', width: 12, height: 12 };
+                    data = msg;
+                }
+                inCount++;
             }
+
+            newEdges.push({
+                id,
+                source,
+                target,
+                sourceHandle,
+                targetHandle,
+                label,
+                type: 'straight',
+                animated: false,
+                style,
+                markerEnd,
+                data,
+            });
         });
 
         setEdges(newEdges);
-    }, [useStore.getState().messages]);
+    }, [messages, connected, baseConnectionEdge, setEdges]);
 
     const handleClearMessages = useCallback(() => {
         // Reset to only base connection edge
