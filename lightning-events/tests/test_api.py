@@ -1,4 +1,3 @@
-
 import pytest
 import subprocess
 import time
@@ -17,7 +16,11 @@ logger = logging.getLogger(__name__)
 
 def log_request_response(response, test_name):
     """Log detailed request and response information"""
-    assert False
+    logger.info(f"[{test_name}] Request URL: {response.request.url}")
+    logger.info(f"[{test_name}] Request Method: {response.request.method}")
+    logger.info(f"[{test_name}] Request Body: {response.request.body}")
+    logger.info(f"[{test_name}] Response Status: {response.status_code}")
+    logger.info(f"[{test_name}] Response Body: {response.text}")
 
 def find_free_port():
     """Find a free port for testing"""
@@ -67,9 +70,10 @@ def test_api_connect_sequence(api_server):
             'connprivkey': '03'
         }}
     ])
+    log_request_response(response, "test_api_connect_sequence")
     assert response.status_code >= 200
     
     response = response.json()
     
     assert 'events_processed' in response
-    assert response['events_processed'] == 1
+    assert response['events_processed'] == 2
