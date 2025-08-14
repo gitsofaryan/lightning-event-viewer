@@ -1,6 +1,6 @@
 import { io, Socket } from "socket.io-client";
 
-const API_BASE_URL = "http://localhost:5000";
+const API_BASE_URL = "https://lightning-event-viewer-4.onrender.com";
 
 export interface MessageFlowEvent {
   sequence_id?: string;
