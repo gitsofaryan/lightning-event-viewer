@@ -1,5 +1,5 @@
 // Node Types
-export type NodeType = 'runner' | 'ldk';
+export type NodeType = "runner" | "ldk";
 
 export interface Node {
   id: string;
@@ -11,17 +11,43 @@ export interface Node {
   };
 }
 
-// Message Types
-export type MessageType = 
-  | 'init' 
-  | 'error' 
-  | 'warning' 
-  | 'ping' 
-  | 'pong'
-  | 'open_channel'
-  | 'accept_channel'
-  | 'funding_created'
-  | 'funding_signed';
+// Message Types - Complete BOLT #1 specification
+export type MessageType =
+  // Setup & Control (types 0-31)
+  | "init" // 16
+  | "error" // 17
+  | "warning" // 1
+  | "ping" // 18
+  | "pong" // 19
+  | "peer_storage" // 7
+  | "peer_storage_retrieval" // 9
+
+  // Channel (types 32-127)
+  | "open_channel" // 32
+  | "accept_channel" // 33
+  | "funding_created" // 34
+  | "funding_signed" // 35
+  | "channel_ready" // 36
+  | "shutdown" // 38
+  | "closing_signed" // 39
+
+  // Commitment (types 128-255)
+  | "update_add_htlc" // 128
+  | "update_fulfill_htlc" // 130
+  | "update_fail_htlc" // 131
+  | "commitment_signed" // 132
+  | "revoke_and_ack" // 133
+  | "update_fee" // 134
+  | "update_fail_malformed_htlc" // 135
+
+  // Routing (types 256-511)
+  | "channel_announcement" // 256
+  | "node_announcement" // 257
+  | "channel_update" // 258
+  | "query_short_channel_ids" // 261
+  | "reply_short_channel_ids_end" // 262
+  | "query_channel_range" // 263
+  | "reply_channel_range"; // 264
 
 export interface Message {
   id: string;
@@ -29,22 +55,22 @@ export interface Message {
   name: string;
   description: string;
   category: MessageCategory;
-  payload?: Record<string, any>;
+  payload?: Record<string, unknown>;
 }
 
-export type MessageCategory = 
-  | 'connection' 
-  | 'channel' 
-  | 'commitment' 
-  | 'routing' 
-  | 'misc';
+export type MessageCategory =
+  | "connection"
+  | "channel"
+  | "commitment"
+  | "routing"
+  | "misc";
 
 // Connection States
-export type ConnectionState = 
-  | 'disconnected'
-  | 'connecting'
-  | 'connected'
-  | 'error';
+export type ConnectionState =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "error";
 
 // Message Log
 export interface MessageLog {
@@ -53,7 +79,7 @@ export interface MessageLog {
   source: NodeType;
   target: NodeType;
   message: Message;
-  status: 'sent' | 'received' | 'error';
+  status: "sent" | "received" | "error";
 }
 
 // API Types
@@ -86,7 +112,7 @@ export interface FlaskMessage {
     features: string;
     globalfeatures: string;
   };
-  direction: 'sent' | 'received';
+  direction: "sent" | "received";
   status: string;
   timestamp: number;
   type: string;
@@ -94,7 +120,7 @@ export interface FlaskMessage {
 
 export interface MessageFlowType {
   id: string;
-  direction: 'sent' | 'received';
+  direction: "sent" | "received";
   type: MessageType;
-  status: 'pending' | 'success' | 'error';
+  status: "pending" | "success" | "error";
 }

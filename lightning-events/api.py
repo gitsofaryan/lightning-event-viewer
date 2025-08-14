@@ -1,19 +1,19 @@
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
-from flask_cors import CORS  # <-- Add this import
+from flask_cors import CORS  
 from lnprototest.dummyrunner import DummyRunner
 from lnprototest.errors import SpecFileError
 from model import WsConnect, WsRawMsg, WsExpectMsg, WsDisconnect
 import logging
 import json
-import time  # Add this import if not present
+import time
 
-# Set up logging
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)  # <-- Enable CORS for all routes
+CORS(app) 
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 class DummyConfig:

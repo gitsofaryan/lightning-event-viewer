@@ -13,20 +13,18 @@ export interface ApiResponse<T> {
 
 // API Client for minimal endpoints
 export const apiClient = {
-  // Connect endpoint - runs Vincent's 7-step sequence
+  // Connect endpoint - runs basic connect sequence
   async connect(): Promise<MessageResponse> {
     try {
-      const response = await api.connect();
+      const response = await api.runConnectSequence();
       return {
         messages: [
           {
             direction: "out" as const,
-            event: "sequence_started",
+            event: "sequence_completed",
             data: {
               status: response.status,
-              sequence_id: response.sequence_id,
-              node_id: response.node_id,
-              steps_completed: response.steps_completed,
+              events_processed: response.events_processed,
             },
             timestamp: Date.now(),
           },
@@ -44,13 +42,18 @@ export const apiClient = {
     content: Record<string, unknown> = {}
   ): Promise<MessageResponse> {
     try {
-      await api.sendMessage(type, content);
+      const response = await api.sendMessage("send", "03", type);
       return {
         messages: [
           {
             direction: "out" as const,
-            event: "raw_message",
-            data: { type, content },
+            event: "message_sent",
+            data: {
+              type,
+              content,
+              status: response.status,
+              events_processed: response.events_processed,
+            },
             timestamp: Date.now(),
           },
         ],
@@ -67,8 +70,7 @@ export const apiClient = {
   },
 
   async runConnectSequence(nodeId: string = "03"): Promise<void> {
-    // Use the correct API method, not the WebSocketService method
-    return api.runConnectSequence(nodeId);
+    await api.runConnectSequence(nodeId);
   },
 
   disconnect(): void {

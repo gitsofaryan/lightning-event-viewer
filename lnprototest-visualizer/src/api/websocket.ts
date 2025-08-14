@@ -1,6 +1,5 @@
 import { io, Socket } from "socket.io-client";
-
-const API_BASE_URL = "https://lightning-event-viewer-4.onrender.com";
+import { API_BASE_URL } from "./config";
 
 export interface MessageFlowEvent {
   sequence_id?: string;
@@ -54,7 +53,7 @@ class WebSocketService {
       });
 
       // Remove any existing listeners before adding new ones
-      this.socket.off("protocol_message");
+      this.socket.off("message");
 
       return new Promise((resolve, reject) => {
         if (!this.socket) return reject(new Error("Socket not initialized"));
@@ -65,12 +64,11 @@ class WebSocketService {
           resolve();
         });
 
-        // Listen for protocol_message only once
-        this.socket.on("protocol_message", (data: MessageFlowEvent) => {
-          console.log("Received protocol_message:", data);
+        // Listen for message events from backend
+        this.socket.on("message", (data: MessageFlowEvent) => {
+          console.log("Received message:", data);
           this.messageHandlers.forEach((handler) => handler(data));
         });
-
         this.socket.on("error", (error: { error: string }) => {
           console.error("Socket.IO error:", error);
           this.errorHandlers.forEach((handler) => handler(error));
@@ -99,7 +97,7 @@ class WebSocketService {
     }
   }
 
-  public async runConnect(nodeId: string = "03"): Promise<void> {
+  public async runConnect(_nodeId: string = "03"): Promise<void> {
     // This method is now just a wrapper for the main API
     // The actual HTTP call should be made through the main API
     console.log(
@@ -109,8 +107,8 @@ class WebSocketService {
   }
 
   public async sendRawMessage(
-    type: string,
-    content: Record<string, unknown> = {}
+    _type: string,
+    _content: Record<string, unknown> = {}
   ): Promise<void> {
     // This method is now just a wrapper for the main API
     // The actual HTTP call should be made through the main API

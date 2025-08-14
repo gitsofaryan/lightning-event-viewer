@@ -13,7 +13,8 @@ class WsConnect(Connect):
         result = super().action(runner)
         try:
             from flask_socketio import emit
-            emit('message', {
+            from api import socketio  # Import the socketio instance
+            socketio.emit('message', {
                 'sequence_id': 'connect_seq',
                 'step': 1,
                 'direction': 'out',
@@ -47,7 +48,8 @@ class WsRawMsg(RawMsg):
         result = super().action(runner)
         try:
             from flask_socketio import emit
-            emit('message', {
+            from api import socketio  # Import the socketio instance
+            socketio.emit('message', {
                 'sequence_id': 'raw_seq',
                 'step': 2,
                 'direction': 'out',
@@ -83,7 +85,8 @@ class WsExpectMsg(ExpectMsg):
         result = super().action(runner)
         try:
             from flask_socketio import emit
-            emit('message', {
+            from api import socketio  # Import the socketio instance
+            socketio.emit('message', {
                 'sequence_id': 'expect_seq',
                 'step': 3,
                 'direction': 'in',
@@ -107,7 +110,8 @@ class WsDisconnect(Disconnect):
         result = super().action(runner)
         try:
             from flask_socketio import emit
-            emit('message', {
+            from api import socketio  # Import the socketio instance
+            socketio.emit('message', {
                 'sequence_id': 'disconnect_seq',
                 'step': 4,
                 'direction': 'out',
