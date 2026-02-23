@@ -75,5 +75,5 @@ bun dev      # (npm run dev or yarn dev)
 ---
 
 <div align="center">
-  <p>Engineered with ⚡ by <a href="https://github.com/AryanJain">Aryan Jain</a></p>
+  <p>Engineered with ⚡ by <a href="https://github.com/gitsofaryan">Aryan Jain</a></p>
 </div>
