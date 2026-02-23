@@ -1,15 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-    Box,
-    SpaceBetween,
-    Toggle,
-    Input,
-    Button,
-    Container,
-    Header,
-    Alert,
-    Badge
-} from '@cloudscape-design/components';
+import { Toggle } from '@cloudscape-design/components';
 import { useStore } from '../../store';
 import { MessageFlowEvent } from '../../api/websocket';
 import { Copy, Download, Trash2, Eye, EyeOff } from 'lucide-react';
@@ -28,17 +18,14 @@ const MessageLog: React.FC = () => {
     const [autoScroll, setAutoScroll] = useState(true);
     const [showTimestamps, setShowTimestamps] = useState(true);
     const [searchText, setSearchText] = useState('');
-    const [copySuccess, setCopySuccess] = useState(false);
     const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
     const messages = useStore(state => state.messages);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
         if (autoScroll && messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
-        console.log('MessageLog: messages updated', messages);
     }, [messages, autoScroll]);
 
     const handleDownload = () => {
@@ -56,8 +43,6 @@ const MessageLog: React.FC = () => {
         try {
             const data = JSON.stringify(messages, null, 2);
             await navigator.clipboard.writeText(data);
-            setCopySuccess(true);
-            setTimeout(() => setCopySuccess(false), 2000);
         } catch (err) {
             console.error('Failed to copy to clipboard:', err);
         }
@@ -78,71 +63,42 @@ const MessageLog: React.FC = () => {
         setExpandedMessages(newExpanded);
     };
 
-    const getMessageColor = (direction: string) => {
-        return direction === 'out' ? 'text-blue-600' : 'text-green-600';
-    };
-
-    const getDirectionIcon = (direction: string) => {
-        return direction === 'out' ? '→' : '←';
-    };
-
-    const getStepBadge = (message: MessageFlowEvent) => {
-        if (message.step) {
-            return (
-                <Badge color="blue">
-                    Step {message.step}
-                </Badge>
-            );
-        }
-        return null;
-    };
-
     const renderMessage = (message: MessageFlowEvent, index: number) => {
         const messageId = `${message.sequence_id || 'raw'}-${message.timestamp}-${index}`;
         const isExpanded = expandedMessages.has(messageId);
         const timestamp = showTimestamps ? formatTimestamp(message.timestamp) : '';
-        const directionIcon = getDirectionIcon(message.direction);
-        const messageColor = getMessageColor(message.direction);
-        const fromNode = message.direction === 'out' ? 'RUNNER' : 'LDK';
-        const toNode = message.direction === 'out' ? 'LDK' : 'RUNNER';
+        const directionIcon = message.direction === 'out' ? '→' : '←';
+        const messageColor = message.direction === 'out' ? 'text-blue-500' : 'text-green-500';
 
         return (
             <div
                 key={messageId}
-                className="message-item border-l-4 border-gray-200 hover:border-blue-300 bg-white rounded-lg p-4 mb-3 shadow-sm hover:shadow-md transition-all duration-200"
+                className="border-b border-[#111] bg-black hover:bg-[#050505] transition-colors group"
             >
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                <div className="flex items-center px-6 py-3.5 hover:bg-[#0a0a0a] cursor-pointer" onClick={() => toggleMessageExpansion(messageId)}>
+                    <div className="flex items-center gap-6 flex-1 min-w-0">
                         {showTimestamps && (
-                            <span className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
+                            <span className="text-[10px] text-gray-700 font-mono shrink-0">
                                 {timestamp}
                             </span>
                         )}
-                        {getStepBadge(message)}
-                        <div className="flex items-center gap-2">
-                            <span className={`font-semibold ${messageColor}`}>
-                                {message.event}
-                            </span>
-                            <span className="text-sm text-gray-600">
-                                <span className="font-medium text-blue-600">{fromNode}</span>
-                                <span className="mx-2 text-gray-400">{directionIcon}</span>
-                                <span className="font-medium text-green-600">{toNode}</span>
-                            </span>
+                        <span className={`text-[12px] font-black uppercase tracking-tight shrink-0 ${messageColor}`}>
+                            {message.event}
+                        </span>
+                        <div className="flex items-center gap-4 text-[10px] font-bold text-gray-700 uppercase truncate">
+                            <span className="opacity-40">{message.direction === 'out' ? 'RUNNER' : 'LDK'}</span>
+                            <span className="opacity-20">{directionIcon}</span>
+                            <span className="opacity-40">{message.direction === 'out' ? 'LDK' : 'RUNNER'}</span>
                         </div>
                     </div>
-                    <Button
-                        onClick={() => toggleMessageExpansion(messageId)}
-                        variant="icon"
-                        className="text-gray-500 hover:text-gray-700"
-                    >
-                        {isExpanded ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </Button>
+                    <div className="flex items-center gap-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {isExpanded ? <EyeOff size={14} className="text-gray-600" /> : <Eye size={14} className="text-gray-600" />}
+                    </div>
                 </div>
 
                 {isExpanded && (
-                    <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                        <div className="text-xs text-gray-500 mb-2">Message Data:</div>
-                        <pre className="text-sm font-mono text-gray-800 whitespace-pre-wrap overflow-x-auto">
+                    <div className="p-8 bg-black border-t border-[#111]">
+                        <pre className="text-[11px] font-mono text-gray-500 whitespace-pre-wrap leading-relaxed shadow-inner p-5 bg-[#020202] rounded border border-[#111]">
                             {JSON.stringify(message.data, null, 2)}
                         </pre>
                     </div>
@@ -152,109 +108,67 @@ const MessageLog: React.FC = () => {
     };
 
     const filteredMessages = messages.filter(msg => {
+        if (msg.is_housekeeping) return false;
         if (!searchText) return true;
         const searchLower = searchText.toLowerCase();
         return (
             msg.event.toLowerCase().includes(searchLower) ||
-            JSON.stringify(msg.data).toLowerCase().includes(searchLower) ||
-            (msg.sequence_id && msg.sequence_id.toLowerCase().includes(searchLower))
+            JSON.stringify(msg.data).toLowerCase().includes(searchLower)
         );
     });
 
     return (
-        <Container
-            header={
-                <Header
-                    variant="h3"
-                    description={`${messages.length} message${messages.length !== 1 ? 's' : ''} logged`}
-                    actions={
-                        <SpaceBetween direction="horizontal" size="xs">
-                            <Button
-                                onClick={handleDownload}
-                                variant="normal"
-                            >
-                                <Download size={16} style={{ marginRight: '4px' }} />
-                                {/* Export */}
-                            </Button>
-                            <Button
-                                onClick={handleCopy}
-                                variant="normal"
-                            >
-                                <Copy size={16} style={{ marginRight: '4px' }} />
-                                {/* {copySuccess ? 'Copied!' : 'Copy'} */}
-                            </Button>
-                            <Button
-                                onClick={handleClear}
-                                variant="normal"
-                                disabled={messages.length === 0}
-                            >
-                                <Trash2 size={16} style={{ marginRight: '4px' }} />
-                                {/* Clear */}
-                            </Button>
-                        </SpaceBetween>
-                    }
-                >
-                    Lightning Network Message Log
-                </Header>
-            }
-        >
-            <SpaceBetween size="m">
-                {copySuccess && (
-                    <Alert type="success" dismissible onDismiss={() => setCopySuccess(false)}>
-                        Messages copied to clipboard!
-                    </Alert>
-                )}
+        <div className="h-full flex flex-col text-white bg-black">
+            {/* Control Bar */}
+            <div className="px-6 py-3 border-b border-[#111] bg-[#080808] flex justify-between items-center shrink-0">
+                <div className="flex gap-6">
+                    <button onClick={handleDownload} title="Download" className="text-gray-600 hover:text-white transition-colors"><Download size={16} /></button>
+                    <button onClick={handleCopy} title="Copy" className="text-gray-600 hover:text-white transition-colors"><Copy size={16} /></button>
+                    <button onClick={handleClear} disabled={messages.length === 0} title="Clear" className="text-gray-600 hover:text-red-500 transition-colors disabled:opacity-20"><Trash2 size={16} /></button>
+                </div>
 
-                <Box>
-                    <SpaceBetween direction="horizontal" size="s">
-                        <Input
-                            value={searchText}
-                            type="search"
-                            placeholder="Search messages, events, or data..."
-                            onChange={({ detail }) => setSearchText(detail.value)}
-                            clearAriaLabel="Clear search"
-                        />
-                        <Toggle
-                            checked={autoScroll}
-                            onChange={({ detail }) => setAutoScroll(detail.checked)}
-                        >
-                            Auto-scroll
-                        </Toggle>
-                        <Toggle
-                            checked={showTimestamps}
-                            onChange={({ detail }) => setShowTimestamps(detail.checked)}
-                        >
-                            Timestamps
-                        </Toggle>
-                    </SpaceBetween>
-                </Box>
-
-                <Box>
-                    <div
-                        className="message-log-container"
-                        style={{
-                            maxHeight: '500px',
-                            overflowY: 'auto',
-                            padding: '8px',
-                            backgroundColor: '#f8fafc',
-                            borderRadius: '8px'
-                        }}
-                    >
-                        {filteredMessages.length === 0 ? (
-                            <div className="text-center text-gray-500 py-8">
-                                {searchText ? 'No messages match your search.' : 'No messages yet. Start by connecting!'}
-                            </div>
-                        ) : (
-                            <>
-                                {filteredMessages.map(renderMessage)}
-                                <div ref={messagesEndRef} />
-                            </>
-                        )}
+                <div className="flex items-center gap-10">
+                    <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-black text-gray-700 uppercase tracking-widest">FEED LOCK</span>
+                        <Toggle checked={autoScroll} onChange={({ detail }) => setAutoScroll(detail.checked)} />
                     </div>
-                </Box>
-            </SpaceBetween>
-        </Container>
+                    <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-black text-gray-700 uppercase tracking-widest">TIME</span>
+                        <Toggle checked={showTimestamps} onChange={({ detail }) => setShowTimestamps(detail.checked)} />
+                    </div>
+                </div>
+            </div>
+
+            <div className="bg-black border-b border-[#111] px-6 py-4 shrink-0">
+                <input
+                    value={searchText}
+                    type="search"
+                    placeholder="PROTOCOL SCANNER / SEARCH SIGNAL..."
+                    className="w-full bg-transparent text-[11px] font-black uppercase tracking-[0.3em] text-gray-700 outline-none placeholder:opacity-20 focus:text-white transition-colors"
+                    onChange={(e) => setSearchText(e.target.value)}
+                />
+            </div>
+
+            <div className="flex-1 overflow-y-auto scrollbar-hide">
+                {filteredMessages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center py-40 opacity-10">
+                        <span className="text-[12px] font-black uppercase tracking-[1em] italic">Awaiting Protocol Signal...</span>
+                    </div>
+                ) : (
+                    <>
+                        {filteredMessages.map(renderMessage)}
+                        <div ref={messagesEndRef} />
+                    </>
+                )}
+            </div>
+
+            <div className="px-6 py-2 border-t border-[#111] bg-[#050505] shrink-0">
+                <div className="text-[9px] font-black text-gray-800 uppercase font-mono text-right py-1">
+                    [{String(messages.length).padStart(4, '0')}] CAPTURED PACKETS
+                </div>
+            </div>
+        </div>
     );
 };
 
-export default MessageLog; 
+export default MessageLog;

@@ -1,5 +1,5 @@
 import { webSocketService, MessageFlowEvent } from "./websocket";
-import api from "./api";
+import api, { SequenceEvent, SequenceResponse } from "./api";
 
 export interface MessageResponse {
   messages: MessageFlowEvent[];
@@ -13,6 +13,11 @@ export interface ApiResponse<T> {
 
 // API Client for minimal endpoints
 export const apiClient = {
+  // Main sequence executor
+  async runSequence(events: SequenceEvent[]): Promise<SequenceResponse> {
+    return api.runSequence(events);
+  },
+
   // Connect endpoint - runs basic connect sequence
   async connect(): Promise<MessageResponse> {
     try {
@@ -38,19 +43,18 @@ export const apiClient = {
 
   // Send raw message
   async sendMessage(
-    type: string,
-    content: Record<string, unknown> = {}
+    msg_name: string,
+    connprivkey: string = "03"
   ): Promise<MessageResponse> {
     try {
-      const response = await api.sendMessage("send", "03", type);
+      const response = await api.sendMessage("send", connprivkey, msg_name);
       return {
         messages: [
           {
             direction: "out" as const,
             event: "message_sent",
             data: {
-              type,
-              content,
+              type: msg_name,
               status: response.status,
               events_processed: response.events_processed,
             },

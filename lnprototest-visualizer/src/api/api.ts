@@ -3,18 +3,20 @@ import { API_BASE_URL } from "./config";
 
 // Backend expects these exact formats:
 export interface BackendEvent {
-  type: "connect" | "send";
+  type: "connect" | "send" | "expect" | "disconnect";
   connprivkey?: string;
   msg?: {
     type: string;
     connprivkey: string;
   };
+  is_housekeeping?: boolean;
 }
 
 export interface SequenceEvent {
   type: "connect" | "send" | "expect" | "disconnect";
   connprivkey: string;
   msg_name?: string;
+  is_housekeeping?: boolean;
 }
 
 export interface SequenceResponse {
@@ -27,21 +29,22 @@ export interface SequenceResponse {
 const convertToBackendFormat = (events: SequenceEvent[]): BackendEvent[] => {
   return events
     .map((event) => {
-      if (event.type === "connect") {
+      if (event.type === "connect" || event.type === "disconnect") {
         return {
-          type: "connect",
+          type: event.type,
           connprivkey: event.connprivkey,
+          is_housekeeping: event.is_housekeeping
         };
-      } else if (event.type === "send") {
+      } else if (event.type === "send" || event.type === "expect") {
         return {
-          type: "send",
+          type: event.type,
           msg: {
             type: event.msg_name || "init",
             connprivkey: event.connprivkey,
           },
+          is_housekeeping: event.is_housekeeping
         };
       }
-      // Skip expect/disconnect for now as backend doesn't handle them
       return null;
     })
     .filter(Boolean) as BackendEvent[];
@@ -79,7 +82,7 @@ const api = {
     return api.runSequence(events);
   },
 
-  // Helper method to send a single message
+  // Helper method to send a single message or dynamic protocol sequence
   sendMessage: (
     type: "send" | "connect",
     connprivkey: string = "03",
@@ -87,12 +90,20 @@ const api = {
   ) => {
     let events: SequenceEvent[];
 
-    if (type === "send") {
-      // For send messages, always include a connect first since backend expects them in same sequence
+    if (type === "send" && msg_name) {
+      // Dynamic Protocol Sequences: If there is an expected response, we build an array
+      // of Send -> Expect to validate BOLT #1 interactions locally.
       events = [
-        { type: "connect", connprivkey },
+        { type: "connect", connprivkey, is_housekeeping: true },
         { type: "send", connprivkey, msg_name },
       ];
+
+      // Native Ping -> Pong expectation
+      if (msg_name === "ping") {
+        events.push({ type: "expect", connprivkey, msg_name: "pong" });
+      }
+      // Add more dynamic expectations here if needed in the future
+      
     } else {
       events = [{ type, connprivkey, msg_name }];
     }

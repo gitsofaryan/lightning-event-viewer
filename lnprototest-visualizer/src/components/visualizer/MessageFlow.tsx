@@ -16,16 +16,11 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import {
-    Container,
-    Header,
-    Box,
-    SpaceBetween,
-    Button
+    SpaceBetween
 } from '@cloudscape-design/components';
 import { useStore } from '../../store';
 import { MessageFlowEvent } from '../../api/websocket';
-import MessageLog from './MessageLog';
-import { Zap } from 'lucide-react';
+import { Zap, Activity } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
 interface CustomNodeData {
@@ -37,67 +32,69 @@ interface CustomNodeData {
 const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ data }) => {
     return (
         <div
-            className={`flex flex-col items-center justify-center p-6 rounded-xl border-2 shadow-lg bg-white transition-all duration-500
-        ${data.type === 'runner' ? 'border-blue-500 hover:border-blue-600' : 'border-yellow-500 hover:border-yellow-600'}
-        ${data.isConnected ? 'shadow-xl animate-pulse' : 'opacity-75'}`}
+            className={`flex flex-col items-center justify-start p-10 rounded-[2.5rem] border-2 shadow-2xl bg-[#000000] text-white transition-all duration-700
+        ${data.type === 'runner' ? 'border-blue-900/40 hover:border-blue-500 shadow-blue-900/10' : 'border-orange-900/40 hover:border-orange-500 shadow-orange-900/10'}
+        ${data.isConnected ? 'opacity-100' : 'opacity-40 filter grayscale'}`}
             style={{
-                minWidth: '200px',
-                minHeight: '400px', // taller for more rows
+                width: '320px',
+                height: '520px',
                 pointerEvents: 'all',
-                transform: data.isConnected ? 'translateY(-2px)' : 'translateY(0px)',
-                animation: data.isConnected ? 'float 3s ease-in-out infinite' : 'none'
+                boxShadow: data.isConnected ? (data.type === 'runner' ? '0 0 50px rgba(37,99,235,0.1)' : '0 0 50px rgba(249,115,22,0.1)') : 'none',
             }}
         >
-            <style dangerouslySetInnerHTML={{
-                __html: `
-          @keyframes float {
-            0%, 100% { transform: translateY(-2px); }
-            50% { transform: translateY(-6px); }
-          }
-        `
-            }} />
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-all duration-300
-        ${data.type === 'runner' ? 'bg-blue-100 text-blue-600' : 'bg-yellow-100 text-yellow-600'}
-        ${data.isConnected ? 'scale-110' : 'scale-100'}`}
+            <div className={`w-28 h-28 rounded-full flex items-center justify-center mb-10 transition-all duration-700
+        ${data.type === 'runner' ? 'bg-blue-900/5 text-blue-500 border border-blue-900/20' : 'bg-orange-900/5 text-orange-500 border border-orange-900/20'}
+        ${data.isConnected ? 'scale-100' : 'scale-90'}`}
             >
-                <Zap size={32} />
+                {data.type === 'runner' ? <Activity size={50} strokeWidth={1} /> : <Zap size={50} strokeWidth={1} />}
             </div>
-            <div className="text-base font-bold text-gray-800 mb-2">{data.label}</div>
-            <div className={`text-sm px-3 py-1 rounded-full font-medium
-        ${data.isConnected ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-                {data.isConnected ? 'Online' : 'Offline'}
+
+            <div className="text-[20px] font-black mb-4 tracking-[0.2em] uppercase text-center">{data.label}</div>
+
+            <div className={`text-[10px] px-6 py-2 rounded-full font-black uppercase tracking-[0.3em] border transition-all duration-700
+        ${data.isConnected ? 'bg-green-500/10 text-green-500 border-green-500/30' : 'bg-red-500/10 text-red-500 border-red-500/30'}`}>
+                {data.isConnected ? 'ACTIVE NODE' : 'DISCONNECTED'}
             </div>
-            {/* Render 20 vertical handles for stacking arrows */}
-            {[...Array(20)].map((_, i) => (
-                <React.Fragment key={i}>
+
+            <div className="mt-auto w-full space-y-3 px-8 pb-10 opacity-10">
+                <div className="h-1 bg-white rounded-full w-full"></div>
+                <div className="h-1 bg-white rounded-full w-3/4 mx-auto"></div>
+                <div className="h-1 bg-white rounded-full w-1/2 mx-auto"></div>
+            </div>
+
+            {/* Left Handles (Inputs) */}
+            <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-center gap-3">
+                {[...Array(15)].map((_, i) => (
                     <Handle
-                        type="source"
-                        position={Position.Right}
-                        id={`right-${i}`}
-                        style={{
-                            background: data.type === 'runner' ? '#3b82f6' : '#eab308',
-                            width: 12,
-                            height: 12,
-                            opacity: data.isConnected ? 1 : 0.5,
-                            top: `${5 + i * 4.5}%`,
-                            right: '-6px',
-                        }}
-                    />
-                    <Handle
+                        key={`left-${i}`}
                         type="target"
                         position={Position.Left}
                         id={`left-${i}`}
+                        className="!w-2.5 !h-2.5 !border-none !min-h-0 !static !translate-y-0"
                         style={{
-                            background: data.type === 'runner' ? '#3b82f6' : '#eab308',
-                            width: 12,
-                            height: 12,
-                            opacity: data.isConnected ? 1 : 0.5,
-                            top: `${5 + i * 4.5}%`,
-                            left: '-6px',
+                            background: data.isConnected ? (data.type === 'runner' ? '#3b82f6' : '#f97316') : '#111',
+                            boxShadow: data.isConnected ? `0 0 10px ${data.type === 'runner' ? '#3b82f6' : '#f97316'}` : 'none',
                         }}
                     />
-                </React.Fragment>
-            ))}
+                ))}
+            </div>
+
+            {/* Right Handles (Outputs) */}
+            <div className="absolute right-0 top-0 bottom-0 flex flex-col justify-center gap-3">
+                {[...Array(15)].map((_, i) => (
+                    <Handle
+                        key={`right-${i}`}
+                        type="source"
+                        position={Position.Right}
+                        id={`right-${i}`}
+                        className="!w-2.5 !h-2.5 !border-none !min-h-0 !static !translate-y-0"
+                        style={{
+                            background: data.isConnected ? (data.type === 'runner' ? '#3b82f6' : '#f97316') : '#111',
+                            boxShadow: data.isConnected ? `0 0 10px ${data.type === 'runner' ? '#3b82f6' : '#f97316'}` : 'none',
+                        }}
+                    />
+                ))}
+            </div>
         </div>
     );
 };
@@ -110,16 +107,16 @@ const initialNodes: Node<CustomNodeData>[] = [
     {
         id: 'runner',
         type: 'custom',
-        position: { x: 100, y: 100 }, // fixed y
+        position: { x: 100, y: 100 },
         data: { label: 'Protocol Runner', type: 'runner', isConnected: false },
-        draggable: false,
+        draggable: true,
     },
     {
         id: 'ldk',
         type: 'custom',
-        position: { x: 650, y: 100 }, // fixed y
-        data: { label: 'LDK Node', type: 'ldk', isConnected: false },
-        draggable: false,
+        position: { x: 700, y: 100 },
+        data: { label: 'Target LDK Node', type: 'ldk', isConnected: false },
+        draggable: true,
     },
 ];
 
@@ -128,7 +125,6 @@ const MessageFlowComponent: React.FC = () => {
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const { connected, messages } = useStore();
 
-    // Base connection edge (no arrows, just a line)
     const baseConnectionEdge: Edge = useMemo(() => ({
         id: 'base-connection',
         source: 'runner',
@@ -136,30 +132,25 @@ const MessageFlowComponent: React.FC = () => {
         type: 'smoothstep',
         animated: connected,
         style: {
-            strokeWidth: 3,
-            stroke: connected ? '#10b981' : '#d1d5db',
-            strokeDasharray: connected ? '0' : '8 4',
+            strokeWidth: 4,
+            stroke: connected ? '#14b8a6' : '#111',
+            strokeDasharray: connected ? '0' : '10 5',
+            opacity: connected ? 0.6 : 0.1,
         },
-        // No markerEnd to remove arrows
-        label: connected ? 'Lightning Network Connection' : 'Disconnected',
+        label: connected ? 'TUNNEL ESTABLISHED' : 'OFFLINE',
         labelStyle: {
-            fontSize: '12px',
-            fontWeight: 600,
-            color: connected ? '#059669' : '#6b7280',
-            transform: 'translateY(60px)', // Move base connection label lower
+            fontSize: '9px',
+            fontWeight: 900,
+            fill: connected ? '#14b8a6' : '#333',
+            transform: 'translateY(80px)',
+            letterSpacing: '0.4em',
         },
         labelBgStyle: {
-            fill: 'white',
+            fill: '#000',
             fillOpacity: 0.9,
         },
     }), [connected]);
 
-    // Update base connection edge when connection status changes
-    useEffect(() => {
-        setEdges([baseConnectionEdge]);
-    }, [baseConnectionEdge, setEdges]);
-
-    // Update node connection status
     useEffect(() => {
         setNodes((nds) =>
             nds.map((node) => ({
@@ -174,224 +165,133 @@ const MessageFlowComponent: React.FC = () => {
 
     const onConnect = useCallback(
         (params: Connection) => {
-            if (params.source && params.target) {
-                setEdges((eds) => addEdge({
-                    ...params,
-                    type: 'smoothstep',
-                    animated: true,
-                    style: { stroke: '#4CAF50', strokeWidth: 2 },
-                    // No markerEnd to remove arrows
-                }, eds));
-            }
+            setEdges((eds) => addEdge({
+                ...params,
+                type: 'smoothstep',
+                animated: true,
+                style: { stroke: '#2563eb', strokeWidth: 2 },
+            }, eds));
         },
         [setEdges]
     );
 
-    // Handle connection toggling
     const handleConnectionToggle = useCallback(async () => {
         try {
             if (!connected) {
                 useStore.getState().setConnectionState('connecting');
                 await useStore.getState().connect();
-                console.log('Connection initiated');
             } else {
                 apiClient.disconnect();
                 useStore.getState().setConnectionState('disconnected');
-                setEdges([baseConnectionEdge]);
-                console.log('Connection terminated');
             }
         } catch (error) {
             console.error('Connection error:', error);
             useStore.getState().setConnectionState('disconnected');
         }
-    }, [connected, baseConnectionEdge, setEdges]);
+    }, [connected]);
 
-    // Handle WebSocket events by adding them to the store
+    const handleClearMessages = useCallback(() => {
+        useStore.getState().clearMessages();
+    }, []);
+
     useEffect(() => {
         const handleMessage = (event: MessageFlowEvent) => {
-            try {
-                console.log('Processing message event:', event); // Debug log
-                if (!event || !event.event) {
-                    console.warn('Received invalid event:', event);
-                    return;
-                }
-                // Add message to store, which will trigger the edge rendering effect
-                useStore.getState().addMessage(event);
-            } catch (err) {
-                console.error('Error handling message:', err);
-            }
+            useStore.getState().addMessage(event);
         };
 
         const unsubscribeMessage = apiClient.onMessage(handleMessage);
-        const unsubscribeError = apiClient.onError((error: { error: string }) => {
-            console.error('WebSocket error:', error);
-            useStore.getState().setConnectionState('disconnected');
-            // Optionally show a UI error message here
-        });
+        return () => unsubscribeMessage();
+    }, []);
 
-        return () => {
-            unsubscribeMessage();
-            unsubscribeError();
-        };
-    }, []); // No dependencies, this should only run once
-
-    // Consolidated effect to visualize every message in the store as an arrow
     useEffect(() => {
-        const newEdges: Edge<MessageFlowEvent>[] = [baseConnectionEdge];
-
+        const newEdges: Edge[] = [baseConnectionEdge];
         let outCount = 0;
         let inCount = 0;
 
         messages.forEach((msg, index) => {
             const direction = msg.direction;
             const event = msg.event;
-            let id, source, target, sourceHandle, targetHandle, label, style, markerEnd, data;
+            let id, source, target, sourceHandle, targetHandle, label, style, markerEnd;
 
             if (direction === 'out') {
                 id = `edge-out-${index}`;
                 source = 'runner';
                 target = 'ldk';
-                sourceHandle = `right-${outCount % 20}`;
-                targetHandle = `left-${outCount % 20}`;
-                label = String(event);
-                style = { stroke: '#3b82f6', strokeWidth: 2 };
-                markerEnd = { type: MarkerType.Arrow, color: '#3b82f6', width: 12, height: 12 };
-                data = msg;
+                sourceHandle = `right-${outCount % 15}`;
+                targetHandle = `left-${outCount % 15}`;
+                label = event;
+                style = { stroke: '#3b82f6', strokeWidth: 3, opacity: 0.9 };
+                markerEnd = { type: MarkerType.ArrowClosed, color: '#3b82f6' };
                 outCount++;
-            } else { // 'in'
-                if (event === 'error') {
-                    id = `edge-error-${index}`;
-                    source = 'ldk';
-                    target = 'runner';
-                    sourceHandle = `left-${inCount % 20}`;
-                    targetHandle = `right-${inCount % 20}`;
-                    label = String(msg.data?.error || 'Error');
-                    style = { stroke: '#dc2626', strokeWidth: 2, strokeDasharray: '6 3' };
-                    markerEnd = { type: MarkerType.Arrow, color: '#dc2626', width: 12, height: 12 };
-                    data = msg;
-                } else {
-                    id = `edge-in-${index}`;
-                    source = 'ldk';
-                    target = 'runner';
-                    sourceHandle = `left-${inCount % 20}`;
-                    targetHandle = `right-${inCount % 20}`;
-                    label = String(event);
-                    style = { stroke: '#f59e0b', strokeWidth: 2 };
-                    markerEnd = { type: MarkerType.Arrow, color: '#f59e0b', width: 12, height: 12 };
-                    data = msg;
-                }
+            } else {
+                id = `edge-in-${index}`;
+                source = 'ldk';
+                target = 'runner';
+                sourceHandle = `left-${inCount % 15}`;
+                targetHandle = `right-${inCount % 15}`;
+                label = event;
+                style = { stroke: event === 'error' ? '#ef4444' : '#f97316', strokeWidth: 3, opacity: 0.9 };
+                markerEnd = { type: MarkerType.ArrowClosed, color: event === 'error' ? '#ef4444' : '#f97316' };
                 inCount++;
             }
 
             newEdges.push({
-                id,
-                source,
-                target,
-                sourceHandle,
-                targetHandle,
-                label,
-                type: 'straight',
-                animated: false,
-                style,
-                markerEnd,
-                data,
+                id, source, target, sourceHandle, targetHandle, label,
+                type: 'smoothstep', animated: false, style, markerEnd,
+                labelStyle: { fill: '#000', fontWeight: 900, fontSize: '9px', letterSpacing: '0.1em' },
+                labelBgStyle: { fill: '#fff', fillOpacity: 1, rx: 4, ry: 4 },
+                labelBgPadding: [8, 4]
             });
         });
 
         setEdges(newEdges);
     }, [messages, connected, baseConnectionEdge, setEdges]);
 
-    const handleClearMessages = useCallback(() => {
-        // Reset to only base connection edge
-        setEdges([baseConnectionEdge]);
-        // Clear message store
-        useStore.getState().clearMessages();
-    }, [baseConnectionEdge, setEdges]);
-
     return (
-        <>
-            <Container
-                header={
-                    <Header
-                        variant="h2"
-                        description="Real-time visualization of Lightning Network protocol messages"
-                        actions={
-                            <SpaceBetween direction="horizontal" size="xs">
-                                <Button
-                                    onClick={handleConnectionToggle}
-                                    loading={useStore(state => state.connectionState) === 'connecting'}
-                                    disabled={useStore(state => state.connectionState) === 'connecting'}
-                                    variant={connected ? "normal" : "primary"}
-                                >
-                                    {useStore(state => state.connectionState) === 'connecting' ? 'Connecting...' :
-                                        connected ? 'Disconnect' : 'Connect'}
-                                </Button>
-                                <Button
-                                    onClick={handleClearMessages}
-                                    variant="normal"
-                                >
-                                    Clear Messages
-                                </Button>
-                            </SpaceBetween>
-                        }
+        <div className="h-full w-full flex flex-col bg-[#000000] overflow-hidden relative">
+            {/* Interface Header */}
+            <div className="absolute top-0 left-0 right-0 p-8 flex justify-between items-center z-50 pointer-events-none">
+                <div className="flex items-center gap-4">
+                    <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]'}`}></div>
+                    <div className="text-[14px] font-black text-white tracking-[0.4em] uppercase opacity-80">
+                        Protocol Flow Interface
+                    </div>
+                </div>
+                <div className="flex items-center gap-4 pointer-events-auto">
+                    <button
+                        onClick={handleConnectionToggle}
+                        className={`px-8 py-3 rounded-lg font-black text-[10px] uppercase tracking-[0.2em] transition-all
+                            ${connected ? 'bg-red-600/10 text-red-500 border border-red-600/30 hover:bg-red-600 hover:text-white' : 'bg-blue-600 text-white hover:bg-blue-500 shadow-[0_0_20px_rgba(37,99,235,0.4)]'}`}
                     >
-                        Lightning Network Protocol Visualizer
-                    </Header>
-                }
-            >
-                <SpaceBetween size="l">
-                    {/* Flow Visualization */}
-                    <Box>
-                        <div style={{ height: '700px', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
-                            <ReactFlow
-                                nodes={nodes}
-                                edges={edges}
-                                nodeTypes={nodeTypes}
-                                onNodesChange={onNodesChange}
-                                onEdgesChange={onEdgesChange}
-                                onConnect={onConnect}
-                                fitView
-                                fitViewOptions={{
-                                    padding: 0.2,
-                                    minZoom: 0.8,
-                                    maxZoom: 1.2
-                                }}
-                                minZoom={0.5}
-                                maxZoom={2}
-                                defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-                                style={{
-                                    background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)'
-                                }}
-                                defaultEdgeOptions={{
-                                    type: 'smoothstep',
-                                }}
-                                nodesDraggable={true}
-                                nodesConnectable={connected}
-                                elementsSelectable={true}
-                            >
-                                <Background
-                                    color="#cbd5e1"
-                                    gap={20}
-                                    size={1}
-                                />
-                                <Controls
-                                    showZoom={true}
-                                    showFitView={true}
-                                    showInteractive={false}
-                                />
-                            </ReactFlow>
-                        </div>
-                    </Box>
+                        {connected ? 'TERMINATE' : 'INITIALIZE'}
+                    </button>
+                    <button
+                        onClick={handleClearMessages}
+                        className="px-8 py-3 bg-[#050505] text-gray-500 border border-[#111] rounded-lg hover:border-white/10 hover:text-white transition-all text-[10px] font-black uppercase tracking-[0.2em]"
+                    >
+                        PURGE LOGS
+                    </button>
+                </div>
+            </div>
 
-                    {/* Message Log Panel */}
-                    {connected && (
-                        <Box>
-                            <MessageLog />
-                        </Box>
-                    )}
-                </SpaceBetween>
-            </Container>
-        </>
+            <div className="flex-1 relative bg-[#000000]">
+                <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    nodeTypes={nodeTypes}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onConnect={onConnect}
+                    fitView
+                    fitViewOptions={{ padding: 0.2 }}
+                    minZoom={0.5}
+                    maxZoom={1.5}
+                    style={{ background: '#000000' }}
+                >
+                    <Background color="#111" gap={40} size={1} />
+                </ReactFlow>
+            </div>
+        </div>
     );
 };
 
