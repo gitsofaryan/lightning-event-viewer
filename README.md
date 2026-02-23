@@ -126,5 +126,5 @@ The project is designed for extensibility. To add a new protocol visualizer:
 ---
 
 <div align="center">
-  <p>Building the Future of Bitcoin Protocol Engineering ⚡</p>
+  <p>Engineered with ⚡ by <a href="https://github.com/AryanJain">Aryan Jain</a></p>
 </div>
