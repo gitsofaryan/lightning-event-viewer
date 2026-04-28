@@ -91,10 +91,24 @@ class WsRawMsg(RawMsg):
         # Generate message from args if possible
         if self.msgtype and self.args:
             try:
+                import io
+                import struct
                 from lnprototest.namespace import namespace
-                self.message = self.msgtype.generate(namespace(), **self.args)
+                
+                buf = io.BytesIO()
+                # Prepend the 2-byte message type number (Big Endian)
+                buf.write(struct.pack(">H", self.msgtype.number))
+                # Write the message fields
+                # Note: self.args must contain all required fields for this msgtype
+                try:
+                    self.msgtype.write(buf, self.args, {})
+                except Exception as write_err:
+                    logger.warning(f"Field-level write failed for {getattr(self.msgtype, 'name', 'unknown')}: {write_err}. Using empty fields.")
+                
+                self.message = buf.getvalue()
             except Exception as e:
                 logger.error(f"Failed to generate message {getattr(self.msgtype, 'name', 'unknown')}: {e}")
+
 
 
         result = super().action(runner)
