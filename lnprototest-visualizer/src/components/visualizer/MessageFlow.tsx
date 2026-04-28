@@ -30,40 +30,40 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ data }) => {
     return (
         <div className="flex flex-col items-center">
             <div
-                className={`flex flex-col items-center justify-start w-56 p-8 rounded-[2rem] border-2 bg-[#000] transition-all duration-700
-                ${data.isConnected ? 'opacity-100 shadow-[0_0_40px_rgba(0,0,0,0.5)]' : 'opacity-40 grayscale'}`}
+                className={`flex flex-col items-center justify-start w-72 p-10 rounded-[2.5rem] border-2 bg-[#000] transition-all duration-700
+                ${data.isConnected ? 'opacity-100 shadow-[0_0_50px_rgba(0,0,0,0.6)]' : 'opacity-40 grayscale'}`}
                 style={{ 
                     borderColor: data.isConnected ? `${colorHex}66` : '#111',
-                    boxShadow: data.isConnected ? `0 0 30px ${colorHex}1a` : 'none'
+                    boxShadow: data.isConnected ? `0 0 40px ${colorHex}22` : 'none'
                 }}
             >
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 border transition-all duration-700
+                <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-8 border transition-all duration-700
                     ${data.isConnected ? 'bg-[#050505] scale-110' : 'bg-transparent scale-100'}`}
                     style={{ borderColor: data.isConnected ? `${colorHex}33` : '#111', color: colorHex }}
                 >
-                    <Icon size={32} strokeWidth={1} />
+                    <Icon size={40} strokeWidth={1} />
                 </div>
                 
-                <div className="text-[14px] font-black uppercase tracking-[0.3em] text-white text-center">{data.label}</div>
+                <div className="text-[16px] font-black uppercase tracking-[0.4em] text-white text-center mb-2">{data.label}</div>
                 
-                <div className={`mt-4 text-[8px] px-3 py-1 rounded-full font-black uppercase tracking-widest border
+                <div className={`mt-4 text-[9px] px-4 py-1.5 rounded-full font-black uppercase tracking-widest border
                     ${data.isConnected ? 'text-green-500 border-green-500/20 bg-green-500/5' : 'text-gray-700 border-gray-800 bg-transparent'}`}>
                     {data.isConnected ? 'ACTIVE' : 'OFFLINE'}
                 </div>
             </div>
 
-            <div className="w-[1px] h-[3000px] bg-dashed transition-all duration-1000 opacity-20"
+            <div className="w-[1px] h-[4000px] bg-dashed transition-all duration-1000 opacity-20"
                 style={{ 
                     backgroundImage: `linear-gradient(to bottom, ${colorHex} 50%, transparent 50%)`,
-                    backgroundSize: '1px 12px'
+                    backgroundSize: '1px 16px'
                 }}
             />
 
             <div className="absolute top-0 bottom-0 left-0 right-0 pointer-events-none">
                 {[...Array(100)].map((_, i) => (
                     <React.Fragment key={i}>
-                        <Handle type="source" position={data.type === 'runner' ? Position.Right : Position.Left} id={`h-${i}-src`} style={{ top: `${220 + i * 50}px`, opacity: 0 }} />
-                        <Handle type="target" position={data.type === 'runner' ? Position.Right : Position.Left} id={`h-${i}-tgt`} style={{ top: `${220 + i * 50}px`, opacity: 0 }} />
+                        <Handle type="source" position={data.type === 'runner' ? Position.Right : Position.Left} id={`h-${i}-src`} style={{ top: `${280 + i * 80}px`, opacity: 0 }} />
+                        <Handle type="target" position={data.type === 'runner' ? Position.Right : Position.Left} id={`h-${i}-tgt`} style={{ top: `${280 + i * 80}px`, opacity: 0 }} />
                     </React.Fragment>
                 ))}
             </div>
@@ -74,8 +74,8 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ data }) => {
 const nodeTypes = { custom: CustomNode };
 
 const initialNodes: Node<CustomNodeData>[] = [
-    { id: 'runner', type: 'custom', position: { x: 100, y: 0 }, data: { label: 'CLIENT (RUNNER)', type: 'runner', isConnected: false } },
-    { id: 'ldk', type: 'custom', position: { x: 800, y: 0 }, data: { label: 'TARGET LDK NODE', type: 'ldk', isConnected: false } },
+    { id: 'runner', type: 'custom', position: { x: 0, y: 0 }, data: { label: 'CLIENT (RUNNER)', type: 'runner', isConnected: false } },
+    { id: 'ldk', type: 'custom', position: { x: 1200, y: 0 }, data: { label: 'TARGET LDK NODE', type: 'ldk', isConnected: false } },
 ];
 
 const MessageFlowComponent: React.FC = () => {
@@ -113,8 +113,6 @@ const MessageFlowComponent: React.FC = () => {
 
     useEffect(() => {
         const newEdges: Edge[] = [];
-        
-        // FILTER: Hide housekeeping (repeated connect events) to keep diagram clean
         const flowMessages = messages.filter(m => !m.is_housekeeping);
         const recentMessages = flowMessages.slice(-40);
         const startIndex = Math.max(0, flowMessages.length - 40);
@@ -142,12 +140,12 @@ const MessageFlowComponent: React.FC = () => {
                 },
                 style: { 
                     stroke: isOut ? '#3b82f6' : (eventName === 'error' ? '#ef4444' : '#22c55e'), 
-                    strokeWidth: 3, 
+                    strokeWidth: 4, 
                     opacity 
                 },
-                labelStyle: { fill: '#fff', fontWeight: 900, fontSize: '10px', opacity, letterSpacing: '0.1em' },
-                labelBgStyle: { fill: '#000', fillOpacity: 0.9, rx: 4, ry: 4 },
-                labelBgPadding: [12, 6],
+                labelStyle: { fill: '#fff', fontWeight: 900, fontSize: '12px', opacity, letterSpacing: '0.15em' },
+                labelBgStyle: { fill: '#000', fillOpacity: 0.9, rx: 6, ry: 6 },
+                labelBgPadding: [16, 8],
             });
         });
 
@@ -159,7 +157,7 @@ const MessageFlowComponent: React.FC = () => {
             <div className="absolute top-0 left-0 right-0 p-8 flex justify-end items-center z-50 pointer-events-none">
                 <div className="flex items-center gap-4 pointer-events-auto">
                     <button
-                        onClick={() => fitView({ duration: 800, padding: 0.2 })}
+                        onClick={() => fitView({ duration: 800, padding: 0.5 })}
                         className="flex items-center gap-3 px-6 py-3 bg-[#050505] text-gray-500 border border-white/5 rounded-xl hover:border-blue-500/50 hover:text-blue-400 transition-all text-[10px] font-black uppercase tracking-[0.2em]"
                     >
                         <Maximize2 size={14} />
@@ -188,16 +186,17 @@ const MessageFlowComponent: React.FC = () => {
                 edges={edges}
                 nodeTypes={nodeTypes}
                 fitView
-                fitViewOptions={{ padding: 0.2 }}
-                minZoom={0.1}
+                fitViewOptions={{ padding: 0.5 }}
+                minZoom={0.05}
                 maxZoom={2.5}
                 style={{ background: '#000' }}
             >
-                <Background color="#111" gap={80} size={1} />
+                <Background color="#111" gap={120} size={1} />
             </ReactFlow>
         </div>
     );
 };
+
 
 export default function MessageFlow() {
     return <ReactFlowProvider><MessageFlowComponent /></ReactFlowProvider>;
