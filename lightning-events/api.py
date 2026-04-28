@@ -20,7 +20,12 @@ def create_app(config_class=Config):
     from routes import sequence_bp
     app.register_blueprint(sequence_bp)
 
+    @app.route('/')
+    def index():
+        return {"status": "ok", "message": "Lightning Event Viewer API is running"}, 200
+
     return app
+
 
 if __name__ == "__main__":
     import os
