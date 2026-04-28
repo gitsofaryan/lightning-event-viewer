@@ -20,24 +20,43 @@ class LightningAppRunner(DummyRunner):
             return
             
         msg_name = getattr(msg, 'name', None)
+        if not msg_name:
+            return
+
+        # Broadcast all incoming messages to the visualizer
+        try:
+            from extensions import socketio
+            # Extract fields for visualization
+            data = {'msg_name': msg_name}
+            if hasattr(event, 'fields'):
+                for f in event.fields:
+                    data[f.name] = str(getattr(event, f.name, ''))
+
+            socketio.emit('message', {
+                'sequence_id': 'recv_stream',
+                'direction': 'in',
+                'event': msg_name,
+                'data': data,
+                'is_housekeeping': False,
+                'timestamp': int(time.time() * 1000)
+            })
+            logger.info(f"Streamed incoming message to UI: {msg_name}")
+        except Exception as e:
+            logger.error(f"Error streaming incoming message: {e}")
         
         # Explicit protocol logic matching BOLT #1
         if msg_name == 'ping':
-            # Extract num_pong_bytes. If the original ping event has resolving arguments:
-            num_pong_bytes = getattr(event, 'kwargs', {}).get('num_pong_bytes', 0)
+            # Extract num_pong_bytes
+            num_pong_bytes = getattr(event, 'num_pong_bytes', 0)
             
-            # According to BOLT #1, we shouldn't respond if num_pong_bytes >= 65532
             if num_pong_bytes >= 65532:
                 logger.info(f"Received ping with num_pong_bytes={num_pong_bytes}, dropping per BOLT 1")
                 return
                 
             logger.info(f"Received ping! Automatically queuing pong response of {num_pong_bytes} bytes.")
-            
-            # To simulate the other node responding, we actually have to inject an ExpectMsg 
-            # and fake the output message reading so the user's "Expect pong" resolves successfully.
-            # In lnprototest, `get_output_message` fulfills the `ExpectMsg` automatically using 
-            # fake data, but we can intercept it if we need specific payloads. 
-            pass # Currently get_output_message in DummyRunner correctly builds the faked pong for us!
+            # In DummyRunner, the response is handled via get_output_message,
+            # which will trigger another send event later.
+
 
 class WsConnect(Connect):
     def __init__(self, connprivkey, **kwargs):
