@@ -6,7 +6,7 @@ description = "WebSocket viewer for Lightning Network event sequences"
 authors = ["Aryan Jain <mail.aryan.jain07@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.11"
 lnprototest = { git = "https://github.com/rustyrussell/lnprototest.git", branch = "master" }
 flask = "^2.0.0"
 flask-socketio = "^5.5.1"
@@ -15,7 +15,7 @@ pytest = "^7.0.0"
 requests = "^2.32.4"
 flask-cors = "^6.0.1"
 gunicorn = "^23.0.0"
-coincurve = ">=21.0.0"
+
 
 
 [build-system]
