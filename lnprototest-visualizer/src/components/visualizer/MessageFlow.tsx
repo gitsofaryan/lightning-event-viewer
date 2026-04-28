@@ -75,7 +75,7 @@ const nodeTypes = { custom: CustomNode };
 
 const initialNodes: Node<CustomNodeData>[] = [
     { id: 'runner', type: 'custom', position: { x: 0, y: 0 }, data: { label: 'CLIENT (RUNNER)', type: 'runner', isConnected: false } },
-    { id: 'ldk', type: 'custom', position: { x: 1200, y: 0 }, data: { label: 'TARGET LDK NODE', type: 'ldk', isConnected: false } },
+    { id: 'ldk', type: 'custom', position: { x: 700, y: 0 }, data: { label: 'TARGET LDK NODE', type: 'ldk', isConnected: false } },
 ];
 
 const MessageFlowComponent: React.FC = () => {
@@ -157,7 +157,7 @@ const MessageFlowComponent: React.FC = () => {
             <div className="absolute top-0 left-0 right-0 p-8 flex justify-end items-center z-50 pointer-events-none">
                 <div className="flex items-center gap-4 pointer-events-auto">
                     <button
-                        onClick={() => fitView({ duration: 800, padding: 0.5 })}
+                        onClick={() => fitView({ duration: 800, padding: 0.1 })}
                         className="flex items-center gap-3 px-6 py-3 bg-[#050505] text-gray-500 border border-white/5 rounded-xl hover:border-blue-500/50 hover:text-blue-400 transition-all text-[10px] font-black uppercase tracking-[0.2em]"
                     >
                         <Maximize2 size={14} />
@@ -186,7 +186,7 @@ const MessageFlowComponent: React.FC = () => {
                 edges={edges}
                 nodeTypes={nodeTypes}
                 fitView
-                fitViewOptions={{ padding: 0.5 }}
+                fitViewOptions={{ padding: 0.1 }}
                 minZoom={0.05}
                 maxZoom={2.5}
                 style={{ background: '#000' }}
@@ -196,6 +196,7 @@ const MessageFlowComponent: React.FC = () => {
         </div>
     );
 };
+
 
 
 export default function MessageFlow() {
