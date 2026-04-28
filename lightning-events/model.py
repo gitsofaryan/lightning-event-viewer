@@ -182,7 +182,22 @@ class WsExpectMsg(ExpectMsg):
     def action(self, runner):
         # Apply args to self for validation if supported by ExpectMsg
         # In lnprototest, ExpectMsg.action() handles the verification
-        result = super().action(runner)
+        try:
+            result = super().action(runner)
+        except Exception as e:
+            logger.error(f"ExpectMsg failed: {e}")
+            try:
+                from extensions import socketio
+                socketio.emit('message', {
+                    'direction': 'in',
+                    'event': 'error',
+                    'data': {'error': f"Failed to receive {getattr(self.msgtype, 'name', 'unknown')}: {str(e)}"},
+                    'is_housekeeping': False,
+                    'timestamp': int(time.time() * 1000)
+                })
+            except: pass
+            raise e
+
         try:
             import eventlet
             from extensions import socketio
@@ -206,6 +221,7 @@ class WsExpectMsg(ExpectMsg):
         except Exception as e:
             logger.error(f"Error broadcasting expect message: {e}")
         return result
+
 
 
 

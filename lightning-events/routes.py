@@ -32,10 +32,14 @@ def run_sequence():
         for e in events:
             t = e.get("type")
             is_hk = e.get("is_housekeeping", False)
+            # Support both {msg: {type: 'init'}} and {msg_name: 'init'} formats
             msg = e.get('msg', {})
+            msg_name = e.get('msg_name') or msg.get('type')
             connprivkey = e.get('connprivkey') or msg.get('connprivkey')
-            msg_name = msg.get('type') # 'type' in frontend payload is msg_name
-            args = msg.get('content', {})
+            args = e.get('content') or msg.get('content') or {}
+
+            if not connprivkey:
+                connprivkey = "03" # Default
 
             if t == "connect":
                 mapped.append(WsConnect(connprivkey, is_housekeeping=is_hk))
