@@ -44,19 +44,23 @@ export const apiClient = {
   // Send raw message
   async sendMessage(
     msg_name: string,
-    connprivkey: string = "03"
+    connprivkey: string = "03",
+    content: Record<string, unknown> = {}
   ): Promise<MessageResponse> {
     try {
-      const response = await api.sendMessage("send", connprivkey, msg_name);
+      const key = typeof connprivkey === 'string' ? connprivkey : '03';
+      const response = await api.sendMessage("send", key, msg_name, content);
+
       return {
         messages: [
           {
             direction: "out" as const,
-            event: "message_sent",
+            event: msg_name,
             data: {
               type: msg_name,
               status: response.status,
               events_processed: response.events_processed,
+              connprivkey: key
             },
             timestamp: Date.now(),
           },
@@ -67,6 +71,7 @@ export const apiClient = {
       throw error;
     }
   },
+
 
   // WebSocket management
   async connectWebSocket(): Promise<void> {
@@ -93,4 +98,9 @@ export const apiClient = {
   onComplete(handler: () => void): () => void {
     return webSocketService.onComplete(handler);
   },
+
+  async heartbeat(): Promise<void> {
+    await api.heartbeat();
+  }
 };
+

@@ -47,7 +47,9 @@ interface State {
   initializeConnection: () => Promise<void>;
   setMessages: (messages: MessageFlowEvent[]) => void;
   addMessage: (message: MessageFlowEvent) => void;
+  _listenersAttached: boolean;
 }
+
 
 // Predefined available messages
 const defaultAvailableMessages: AvailableMessage[] = [
@@ -191,47 +193,53 @@ export const useStore = create<State>((set) => ({
   messages: [],
   selectedMessage: null,
   availableMessages: defaultAvailableMessages,
+  _listenersAttached: false,
 
   connect: async () => {
+    const state = useStore.getState();
     try {
       set({ connectionState: "connecting" });
 
       // First connect WebSocket
       await apiClient.connectWebSocket();
 
-      // Attach error handler to push errors to messages
-      apiClient.onError((error) => {
-        set((state) => ({
-          messages: [
-            ...state.messages,
-            {
-              direction: "in",
-              event: "error",
-              data: { error: error.error },
-              timestamp: Date.now(),
-            },
-          ],
-        }));
-      });
+      // Attach handlers ONLY ONCE
+      if (!state._listenersAttached) {
+        apiClient.onError((error) => {
+          set((s) => ({
+            messages: [
+              ...s.messages,
+              {
+                direction: "in",
+                event: "error",
+                data: { error: error.error },
+                timestamp: Date.now(),
+                is_housekeeping: false,
+              },
+            ],
+          }));
+        });
 
-      // Attach message handler to log every backend emit as a raw event
-      apiClient.onMessage((msg) => {
-        console.log("RECEIVED WS MESSAGE:", msg);
-        set((state) => ({
-          messages: [
-            ...state.messages,
-            {
-              direction: msg.direction || 'in',
-              event: msg.msg_name || msg.event || 'raw',
-              data: msg.payload || msg.data || msg,
-              timestamp: msg.timestamp || Date.now(),
-            },
-          ],
-        }));
-      });
+        apiClient.onMessage((msg) => {
+          set((s) => ({
+            messages: [
+              ...s.messages,
+              {
+                direction: msg.direction || 'in',
+                event: msg.msg_name || msg.event || 'raw',
+                data: msg.payload || msg.data || msg,
+                timestamp: msg.timestamp || Date.now(),
+                is_housekeeping: msg.is_housekeeping || false,
+              },
+            ],
+          }));
+        });
+        set({ _listenersAttached: true });
+      }
 
       // Then run the connect sequence
       await apiClient.runConnectSequence();
+
 
       set({
         connected: true,
@@ -248,19 +256,7 @@ export const useStore = create<State>((set) => ({
 
   sendMessage: async (type, content) => {
     try {
-      // Add outgoing message (arrow from runner to ldk)
-      set((state) => ({
-        messages: [
-          ...state.messages,
-          {
-            direction: "out",
-            event: type,
-            data: content || {},
-            timestamp: Date.now(),
-          },
-        ],
-      }));
-      await apiClient.sendMessage(type, content || {});
+      await apiClient.sendMessage(type, '03', content);
     } catch (error) {
       console.error("Send message error:", error);
     }

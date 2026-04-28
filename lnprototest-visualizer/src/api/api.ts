@@ -17,6 +17,7 @@ export interface SequenceEvent {
   connprivkey: string;
   msg_name?: string;
   is_housekeeping?: boolean;
+  content?: Record<string, unknown>;
 }
 
 export interface SequenceResponse {
@@ -41,6 +42,7 @@ const convertToBackendFormat = (events: SequenceEvent[]): BackendEvent[] => {
           msg: {
             type: event.msg_name || "init",
             connprivkey: event.connprivkey,
+            content: event.content || {}
           },
           is_housekeeping: event.is_housekeeping
         };
@@ -49,6 +51,7 @@ const convertToBackendFormat = (events: SequenceEvent[]): BackendEvent[] => {
     })
     .filter(Boolean) as BackendEvent[];
 };
+
 
 const api = {
   // Main sequence endpoint - converts format for backend
@@ -76,40 +79,49 @@ const api = {
   // Helper method to run a basic connect sequence
   runConnectSequence: (nodeId: string = "03") => {
     const events: SequenceEvent[] = [
-      { type: "connect", connprivkey: nodeId },
-      { type: "send", connprivkey: nodeId, msg_name: "init" },
+      { type: "connect", connprivkey: nodeId, is_housekeeping: true },
+      { type: "send", connprivkey: nodeId, msg_name: "init", is_housekeeping: true },
+      { type: "expect", connprivkey: nodeId, msg_name: "init", is_housekeeping: true },
     ];
     return api.runSequence(events);
   },
+
+
 
   // Helper method to send a single message or dynamic protocol sequence
   sendMessage: (
     type: "send" | "connect",
     connprivkey: string = "03",
-    msg_name?: string
+    msg_name?: string,
+    content: Record<string, unknown> = {}
   ) => {
-    let events: SequenceEvent[];
+    let events: any[];
 
     if (type === "send" && msg_name) {
       // Dynamic Protocol Sequences: If there is an expected response, we build an array
       // of Send -> Expect to validate BOLT #1 interactions locally.
       events = [
         { type: "connect", connprivkey, is_housekeeping: true },
-        { type: "send", connprivkey, msg_name },
+        { type: "send", connprivkey, msg_name, content },
       ];
 
       // Native Ping -> Pong expectation
       if (msg_name === "ping") {
         events.push({ type: "expect", connprivkey, msg_name: "pong" });
+      } else if (msg_name === "open_channel") {
+        events.push({ type: "expect", connprivkey, msg_name: "accept_channel" });
+      } else if (msg_name === "funding_created") {
+        events.push({ type: "expect", connprivkey, msg_name: "funding_signed" });
+      } else if (msg_name === "commitment_signed") {
+        events.push({ type: "expect", connprivkey, msg_name: "revoke_and_ack" });
       }
-      // Add more dynamic expectations here if needed in the future
-      
     } else {
-      events = [{ type, connprivkey, msg_name }];
+      events = [{ type, connprivkey, msg_name, content }];
     }
 
-    return api.runSequence(events);
+    return api.runSequence(events as any);
   },
+
 
   // Custom events - for sending raw backend format
   runCustomEvents: (events: BackendEvent[]): Promise<SequenceResponse> => {
@@ -129,6 +141,17 @@ const api = {
   },
 
   disconnect: () => webSocketService.disconnect(),
+  
+  // Heartbeat endpoint to keep connection alive
+  heartbeat: () => {
+    return fetch(`${API_BASE_URL}/heartbeat`)
+      .then(res => res.json())
+      .catch(err => {
+        console.warn("Heartbeat failed", err);
+        throw err;
+      });
+  }
 };
+
 
 export default api;

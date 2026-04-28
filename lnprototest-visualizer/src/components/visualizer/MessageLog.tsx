@@ -86,10 +86,11 @@ const MessageLog: React.FC = () => {
                             {message.event}
                         </span>
                         <div className="flex items-center gap-4 text-[10px] font-bold text-gray-700 uppercase truncate">
-                            <span className="opacity-40">{message.direction === 'out' ? 'RUNNER' : 'LDK'}</span>
+                            <span className="opacity-40">RUNNER</span>
                             <span className="opacity-20">{directionIcon}</span>
-                            <span className="opacity-40">{message.direction === 'out' ? 'LDK' : 'RUNNER'}</span>
+                            <span className="opacity-40">LDK</span>
                         </div>
+
                     </div>
                     <div className="flex items-center gap-6 opacity-0 group-hover:opacity-100 transition-opacity">
                         {isExpanded ? <EyeOff size={14} className="text-gray-600" /> : <Eye size={14} className="text-gray-600" />}

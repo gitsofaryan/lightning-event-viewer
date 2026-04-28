@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useStore } from '../../store';
 import { apiClient } from '../../api/client';
+import { Eye, EyeOff, Search, Send, X, Plus, Terminal } from 'lucide-react';
 
 const MessageList: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState("handshake");
-  const [customEventJson, setCustomEventJson] = useState('[\n  {\n    "type": "send",\n    "connprivkey": "03",\n    "msg_name": "ping"\n  }\n]');
+  const [customEventJson, setCustomEventJson] = useState('[\n  {\n    "type": "send",\n    "msg_name": "ping",\n    "content": {\n      "num_pong_bytes": 1,\n      "ignored": "00"\n    }\n  }\n]');
+
 
   const messageCategories = {
     handshake: [
@@ -38,8 +41,12 @@ const MessageList: React.FC = () => {
   };
 
   const handleSend = (msgName: string) => {
-    apiClient.sendMessage(msgName, '03');
+    const availableMsgs = useStore.getState().availableMessages;
+    const msgDef = availableMsgs.find(m => m.type === msgName || m.id === msgName);
+    useStore.getState().sendMessage(msgName, msgDef?.content || {});
   };
+
+
 
   const handleSendCustom = () => {
     try {

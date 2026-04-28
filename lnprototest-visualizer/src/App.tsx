@@ -3,8 +3,12 @@ import { AppLayout } from '@cloudscape-design/components';
 import VisualizerPage from './pages/VisualizerPage';
 import SettingsPage from './pages/SettingsPage';
 import DocsPage from './pages/DocsPage';
+import { useHeartbeat } from './hooks/useHeartbeat';
 
 function App() {
+  // Initialize heartbeat monitoring (every 15 seconds)
+  useHeartbeat(15000);
+
 
   return (
     <AppLayout

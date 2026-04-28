@@ -2,15 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+
 :root {
-  --color-primary: #0066CC;
-  --color-secondary: #0088FF;
-  --color-accent: #FFD700;
-  --color-success: #16B364;
-  --color-warning: #F79009;
-  --color-error: #F04438;
+  --color-primary: #2563eb;
+  --color-secondary: #f97316;
+  --color-accent: #14b8a6;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
   --color-background: #000000;
-  --color-border-divider-default: #333333;
+  --color-surface: #050505;
+  --color-border: #111111;
 }
 
 html,
@@ -20,9 +23,9 @@ body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background-color: #000000;
+  background-color: var(--color-background);
   color: #ffffff;
-  font-size: 13px;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -31,21 +34,31 @@ body {
   box-sizing: border-box;
 }
 
-/* Custom Scrollbar for Black Theme */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
+/* Glassmorphism utility */
+.glass {
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
+/* Custom Scrollbar for Black Theme */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
   background: #000;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #222;
+::-webkit-scrollbar-thumb {
+  background: #1a1a1a;
   border-radius: 10px;
+  transition: all 0.3s ease;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+::-webkit-scrollbar-thumb:hover {
   background: #333;
 }
 
@@ -57,3 +70,19 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Animations */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 3s infinite ease-in-out;
+}
+
+/* Selection */
+::selection {
+  background: rgba(37, 99, 235, 0.3);
+  color: white;
+}

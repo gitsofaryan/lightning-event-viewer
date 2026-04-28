@@ -1,7 +1,10 @@
 from lnprototest import Connect, RawMsg, ExpectMsg, Disconnect
 from lnprototest.dummyrunner import DummyRunner
 from lnprototest.errors import SpecFileError
-from lnprototest.runner import Conn
+import logging
+import time
+
+logger = logging.getLogger(__name__)
 
 class LightningAppRunner(DummyRunner):
     """
@@ -35,27 +38,26 @@ class LightningAppRunner(DummyRunner):
             # In lnprototest, `get_output_message` fulfills the `ExpectMsg` automatically using 
             # fake data, but we can intercept it if we need specific payloads. 
             pass # Currently get_output_message in DummyRunner correctly builds the faked pong for us!
-import logging
-import time
-
-logger = logging.getLogger(__name__)
 
 class WsConnect(Connect):
+    def __init__(self, connprivkey, **kwargs):
+        self.is_housekeeping = kwargs.pop('is_housekeeping', False)
+        super().__init__(connprivkey, **kwargs)
+
     def __repr__(self):
         return f"WsConnect(connprivkey={self.connprivkey})"
 
     def action(self, runner):
         result = super().action(runner)
         try:
-            from flask_socketio import emit
-            from extensions import socketio  # Import the socketio instance
+            from extensions import socketio
             socketio.emit('message', {
                 'sequence_id': 'connect_seq',
                 'step': 1,
                 'direction': 'out',
                 'event': 'connect',
                 'data': {'connprivkey': str(self.connprivkey)},
-                'is_housekeeping': getattr(self, 'is_housekeeping', False),
+                'is_housekeeping': self.is_housekeeping,
                 'timestamp': int(time.time() * 1000)
             })
             logger.info(f"Broadcasted connect message")
@@ -64,14 +66,11 @@ class WsConnect(Connect):
         return result
 
 class WsRawMsg(RawMsg):
-    def __repr__(self):
-        msg_name = getattr(self, 'msgtype', None)
-        msg_name = msg_name.name if msg_name and hasattr(msg_name, 'name') else None
-        connprivkey = getattr(self, 'connprivkey', None)
-        return f"WsRawMsg(msg_name={msg_name}, connprivkey={connprivkey})"
-
-    def __init__(self, msg_name, connprivkey, *args, **kwargs):
-        self.connprivkey = connprivkey  # Set early for error/debug
+    def __init__(self, msg_name, connprivkey, is_housekeeping=False, args=None, *base_args, **base_kwargs):
+        self.connprivkey = connprivkey
+        self.is_housekeeping = is_housekeeping
+        self.args = args or {}
+        
         if msg_name.startswith("msgtype-"):
             msg_name = msg_name[8:]
             
@@ -81,24 +80,33 @@ class WsRawMsg(RawMsg):
             raise SpecFileError(self, f"Unknown msgtype {msg_name}")
             
         self.msgtype = msgtype
-        self.message = b''  # Pass empty bytes to prevent .hex() crashes downstream 
-        super().__init__(b'', connprivkey=connprivkey, *args, **kwargs)
+        # Pass empty bytes as the message for the runner to fulfill
+        super().__init__(b'', connprivkey=connprivkey, *base_args, **base_kwargs)
+
+    def __repr__(self):
+        msg_name = getattr(self.msgtype, 'name', 'unknown')
+        return f"WsRawMsg(msg_name={msg_name}, connprivkey={self.connprivkey})"
 
     def action(self, runner):
+        # Generate message from args if possible
+        if self.msgtype and self.args:
+            try:
+                self.message = runner.make_message(self.msgtype, **self.args)
+            except Exception as e:
+                logger.error(f"Failed to generate message {getattr(self.msgtype, 'name', 'unknown')}: {e}")
+
         result = super().action(runner)
         try:
-            from flask_socketio import emit
-            from extensions import socketio  # Import the socketio instance
+            from extensions import socketio
             socketio.emit('message', {
                 'sequence_id': 'raw_seq',
-                'step': 2,
                 'direction': 'out',
-                'event': 'send',
-                'data': {
+                'event': getattr(self.msgtype, 'name', 'unknown'),
+                'data': self.args if self.args else {
                     'msg_name': getattr(self.msgtype, 'name', 'unknown'),
                     'connprivkey': str(self.connprivkey)
                 },
-                'is_housekeeping': getattr(self, 'is_housekeeping', False),
+                'is_housekeeping': self.is_housekeeping,
                 'timestamp': int(time.time() * 1000)
             })
             logger.info(f"Broadcasted raw message: {getattr(self.msgtype, 'name', 'unknown')}")
@@ -106,15 +114,13 @@ class WsRawMsg(RawMsg):
             logger.error(f"Error broadcasting raw message: {e}")
         return result
 
-class WsExpectMsg(ExpectMsg):
-    def __repr__(self):
-        msg_name = getattr(self, 'msgtype', None)
-        msg_name = msg_name.name if msg_name and hasattr(msg_name, 'name') else None
-        connprivkey = getattr(self, 'connprivkey', None)
-        return f"WsExpectMsg(msg_name={msg_name}, connprivkey={connprivkey})"
 
-    def __init__(self, msg_name, connprivkey, *args, **kwargs):
+class WsExpectMsg(ExpectMsg):
+    def __init__(self, msg_name, connprivkey, is_housekeeping=False, args=None, *base_args, **base_kwargs):
         self.connprivkey = connprivkey
+        self.is_housekeeping = is_housekeeping
+        self.args = args or {}
+        
         if msg_name.startswith("msgtype-"):
             msg_name = msg_name[8:]
             
@@ -124,24 +130,27 @@ class WsExpectMsg(ExpectMsg):
             raise SpecFileError(self, f"Unknown msgtype {msg_name}")
             
         self.msgtype = msgtype
-        # Pass the string name to the parent ExpectMsg class
-        super().__init__(msg_name, connprivkey=connprivkey, *args, **kwargs)
+        super().__init__(msg_name, connprivkey=connprivkey, *base_args, **base_kwargs)
+
+    def __repr__(self):
+        msg_name = getattr(self.msgtype, 'name', 'unknown')
+        return f"WsExpectMsg(msg_name={msg_name}, connprivkey={self.connprivkey})"
 
     def action(self, runner):
+        # Apply args to self for validation if supported by ExpectMsg
+        # In lnprototest, ExpectMsg.action() handles the verification
         result = super().action(runner)
         try:
-            from flask_socketio import emit
-            from extensions import socketio  # Import the socketio instance
+            from extensions import socketio
             socketio.emit('message', {
                 'sequence_id': 'expect_seq',
-                'step': 3,
                 'direction': 'in',
-                'event': 'expect',
-                'data': {
+                'event': getattr(self.msgtype, 'name', 'unknown'),
+                'data': self.args if self.args else {
                     'msg_name': getattr(self.msgtype, 'name', 'unknown'),
                     'connprivkey': str(self.connprivkey)
                 },
-                'is_housekeeping': getattr(self, 'is_housekeeping', False),
+                'is_housekeeping': self.is_housekeeping,
                 'timestamp': int(time.time() * 1000)
             })
             logger.info(f"Broadcasted expect message: {getattr(self.msgtype, 'name', 'unknown')}")
@@ -149,25 +158,30 @@ class WsExpectMsg(ExpectMsg):
             logger.error(f"Error broadcasting expect message: {e}")
         return result
 
+
 class WsDisconnect(Disconnect):
+    def __init__(self, connprivkey, **kwargs):
+        self.is_housekeeping = kwargs.pop('is_housekeeping', False)
+        super().__init__(connprivkey, **kwargs)
+
     def __repr__(self):
         return f"WsDisconnect(connprivkey={self.connprivkey})"
 
     def action(self, runner):
         result = super().action(runner)
         try:
-            from flask_socketio import emit
-            from extensions import socketio  # Import the socketio instance
+            from extensions import socketio
             socketio.emit('message', {
                 'sequence_id': 'disconnect_seq',
                 'step': 4,
                 'direction': 'out',
                 'event': 'disconnect',
                 'data': {'connprivkey': str(self.connprivkey)},
-                'is_housekeeping': getattr(self, 'is_housekeeping', False),
+                'is_housekeeping': self.is_housekeeping,
                 'timestamp': int(time.time() * 1000)
             })
             logger.info(f"Broadcasted disconnect message")
         except Exception as e:
             logger.error(f"Error broadcasting disconnect message: {e}")
         return result
+

@@ -8,7 +8,9 @@ export interface MessageFlowEvent {
   event: string;
   data: Record<string, unknown>;
   timestamp: number;
+  is_housekeeping?: boolean;
 }
+
 
 class WebSocketService {
   private socket: Socket | null = null;
@@ -42,8 +44,15 @@ class WebSocketService {
 
   public async connect(): Promise<void> {
     try {
+      // If already connected and socket is active, reuse it
       if (this.isConnected && this.socket?.connected) {
         return;
+      }
+
+      // If a socket exists but is not connected, disconnect it first
+      if (this.socket) {
+        this.socket.removeAllListeners();
+        this.socket.disconnect();
       }
 
       // Connect to Socket.IO server
@@ -52,11 +61,9 @@ class WebSocketService {
         autoConnect: true,
       });
 
-      // Remove any existing listeners before adding new ones
-      this.socket.off("message");
-
       return new Promise((resolve, reject) => {
         if (!this.socket) return reject(new Error("Socket not initialized"));
+
 
         this.socket.on("connect", () => {
           console.log("Socket.IO connection established");

@@ -1,4 +1,7 @@
-import monkeypatch # MUST BE FIRST
+import eventlet
+eventlet.monkey_patch()
+
+import monkeypatch # MUST BE SECOND
 from flask import Flask
 from extensions import socketio, cors
 from config import Config
@@ -12,7 +15,7 @@ def create_app(config_class=Config):
     app.config.from_object(config_class)
 
     cors.init_app(app)
-    socketio.init_app(app, cors_allowed_origins="*")
+    socketio.init_app(app, cors_allowed_origins="*", async_mode='eventlet')
 
     from routes import sequence_bp
     app.register_blueprint(sequence_bp)
@@ -21,4 +24,4 @@ def create_app(config_class=Config):
 
 if __name__ == "__main__":
     app = create_app()
-    socketio.run(app, debug=True)
+    socketio.run(app, debug=True)
