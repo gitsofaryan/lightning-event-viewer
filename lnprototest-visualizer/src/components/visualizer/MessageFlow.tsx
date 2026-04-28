@@ -9,11 +9,12 @@ import ReactFlow, {
     useNodesState,
     useEdgesState,
     ReactFlowProvider,
-    MarkerType
+    MarkerType,
+    useReactFlow
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useStore } from '../../store';
-import { Activity, Zap, Trash2, Power, Play } from 'lucide-react';
+import { Activity, Zap, Trash2, Power, Play, Maximize2 } from 'lucide-react';
 import { apiClient } from '../../api/client';
 
 interface CustomNodeData {
@@ -28,7 +29,6 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ data }) => {
 
     return (
         <div className="flex flex-col items-center">
-            {/* Premium Header Box (Restored from previous style) */}
             <div
                 className={`flex flex-col items-center justify-start w-56 p-8 rounded-[2rem] border-2 bg-[#000] transition-all duration-700
                 ${data.isConnected ? 'opacity-100 shadow-[0_0_40px_rgba(0,0,0,0.5)]' : 'opacity-40 grayscale'}`}
@@ -52,7 +52,6 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ data }) => {
                 </div>
             </div>
 
-            {/* Vertical Lifeline */}
             <div className="w-[1px] h-[3000px] bg-dashed transition-all duration-1000 opacity-20"
                 style={{ 
                     backgroundImage: `linear-gradient(to bottom, ${colorHex} 50%, transparent 50%)`,
@@ -60,22 +59,11 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ data }) => {
                 }}
             />
 
-            {/* Hidden Handles for Sequence Arrows */}
             <div className="absolute top-0 bottom-0 left-0 right-0 pointer-events-none">
                 {[...Array(100)].map((_, i) => (
                     <React.Fragment key={i}>
-                        <Handle
-                            type="source"
-                            position={data.type === 'runner' ? Position.Right : Position.Left}
-                            id={`h-${i}-src`}
-                            style={{ top: `${220 + i * 50}px`, opacity: 0 }}
-                        />
-                        <Handle
-                            type="target"
-                            position={data.type === 'runner' ? Position.Right : Position.Left}
-                            id={`h-${i}-tgt`}
-                            style={{ top: `${220 + i * 50}px`, opacity: 0 }}
-                        />
+                        <Handle type="source" position={data.type === 'runner' ? Position.Right : Position.Left} id={`h-${i}-src`} style={{ top: `${220 + i * 50}px`, opacity: 0 }} />
+                        <Handle type="target" position={data.type === 'runner' ? Position.Right : Position.Left} id={`h-${i}-tgt`} style={{ top: `${220 + i * 50}px`, opacity: 0 }} />
                     </React.Fragment>
                 ))}
             </div>
@@ -93,6 +81,7 @@ const initialNodes: Node<CustomNodeData>[] = [
 const MessageFlowComponent: React.FC = () => {
     const [nodes, setNodes] = useNodesState(initialNodes);
     const [edges, setEdges] = useEdgesState([]);
+    const { fitView } = useReactFlow();
     const connected = useStore(state => state.connected);
     const messages = useStore(state => state.messages);
 
@@ -124,8 +113,11 @@ const MessageFlowComponent: React.FC = () => {
 
     useEffect(() => {
         const newEdges: Edge[] = [];
-        const recentMessages = messages.slice(-40);
-        const startIndex = Math.max(0, messages.length - 40);
+        
+        // FILTER: Hide housekeeping (repeated connect events) to keep diagram clean
+        const flowMessages = messages.filter(m => !m.is_housekeeping);
+        const recentMessages = flowMessages.slice(-40);
+        const startIndex = Math.max(0, flowMessages.length - 40);
 
         recentMessages.forEach((msg, index) => {
             const actualIndex = startIndex + index;
@@ -133,7 +125,6 @@ const MessageFlowComponent: React.FC = () => {
             const eventName = (msg.event || 'unknown').toLowerCase();
             const yOffset = index; 
             const opacity = Math.max(0.2, 1 - (recentMessages.length - 1 - index) * 0.05);
-
             const isOut = direction === 'out';
             
             newEdges.push({
@@ -154,13 +145,7 @@ const MessageFlowComponent: React.FC = () => {
                     strokeWidth: 3, 
                     opacity 
                 },
-                labelStyle: { 
-                    fill: '#fff', 
-                    fontWeight: 900, 
-                    fontSize: '10px', 
-                    opacity,
-                    letterSpacing: '0.1em'
-                },
+                labelStyle: { fill: '#fff', fontWeight: 900, fontSize: '10px', opacity, letterSpacing: '0.1em' },
                 labelBgStyle: { fill: '#000', fillOpacity: 0.9, rx: 4, ry: 4 },
                 labelBgPadding: [12, 6],
             });
@@ -171,9 +156,15 @@ const MessageFlowComponent: React.FC = () => {
 
     return (
         <div className="h-full w-full bg-black overflow-hidden relative group">
-            {/* Action Toolbar (Restored) */}
             <div className="absolute top-0 left-0 right-0 p-8 flex justify-end items-center z-50 pointer-events-none">
                 <div className="flex items-center gap-4 pointer-events-auto">
+                    <button
+                        onClick={() => fitView({ duration: 800, padding: 0.2 })}
+                        className="flex items-center gap-3 px-6 py-3 bg-[#050505] text-gray-500 border border-white/5 rounded-xl hover:border-blue-500/50 hover:text-blue-400 transition-all text-[10px] font-black uppercase tracking-[0.2em]"
+                    >
+                        <Maximize2 size={14} />
+                        Recenter
+                    </button>
                     <button
                         onClick={handleConnectionToggle}
                         className={`flex items-center gap-3 px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all
@@ -211,3 +202,4 @@ const MessageFlowComponent: React.FC = () => {
 export default function MessageFlow() {
     return <ReactFlowProvider><MessageFlowComponent /></ReactFlowProvider>;
 }
+
