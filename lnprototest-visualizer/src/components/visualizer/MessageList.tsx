@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../../store';
 import { apiClient } from '../../api/client';
-import { Eye, EyeOff, Search, Send, X, Plus, Terminal, Play, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Search, Send, X, Plus, Terminal, Play, Trash2, ShieldCheck } from 'lucide-react';
 
 const MessageList: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState("handshake");
@@ -46,15 +46,14 @@ const MessageList: React.FC = () => {
     useStore.getState().sendMessage(msgName, msgDef?.content || {});
   };
 
-  const addToSequence = (msgName: string) => {
+  const addToSequence = (msgName: string, type: 'send' | 'expect' = 'send') => {
     const availableMsgs = useStore.getState().availableMessages;
     const msgDef = availableMsgs.find(m => m.type === msgName || m.id === msgName);
-    setPendingSequence([...pendingSequence, { type: 'send', msg_name: msgName, content: msgDef?.content || {} }]);
+    setPendingSequence([...pendingSequence, { type, msg_name: msgName, content: msgDef?.content || {} }]);
   };
 
   const executeSequence = () => {
     if (pendingSequence.length === 0) return;
-    // Always start with connect for the runner
     const finalSequence = [
       { type: 'connect', connprivkey: '03', is_housekeeping: true },
       ...pendingSequence
@@ -78,12 +77,14 @@ const MessageList: React.FC = () => {
   return (
     <div className="h-full flex flex-col text-white bg-black relative">
       <div className="px-5 py-4 border-b border-[#111] bg-[#050505] flex items-center justify-between">
-        <span className="text-[11px] font-black uppercase tracking-[0.4em] text-gray-500">Protocol Library</span>
-        {pendingSequence.length > 0 && (
-          <span className="px-2 py-0.5 bg-blue-600 text-[9px] font-bold rounded flex items-center gap-2">
-            {pendingSequence.length} PENDING
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] font-black uppercase tracking-[0.4em] text-gray-500">Protocol Library</span>
+          {pendingSequence.length > 0 && (
+            <span className="px-2 py-0.5 bg-blue-600 text-[9px] font-bold rounded flex items-center gap-2">
+              {pendingSequence.length} STACKED
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex border-b border-[#111] bg-[#020202] overflow-x-auto scrollbar-hide">
@@ -99,7 +100,7 @@ const MessageList: React.FC = () => {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-hide pb-32">
+      <div className="flex-1 overflow-y-auto scrollbar-hide pb-40">
         {selectedTab !== "custom" ? (
           <div className="divide-y divide-[#111] border-b border-[#111]">
             {currentMessages.map((msg) => (
@@ -119,13 +120,22 @@ const MessageList: React.FC = () => {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => addToSequence(msg.name)}
-                    className="p-2 bg-[#050505] text-gray-400 rounded-lg hover:text-white hover:bg-[#111] border border-white/5 transition-all active:scale-90"
-                    title="Add to Sequence"
-                  >
-                    <Plus size={16} />
-                  </button>
+                  <div className="flex bg-[#050505] rounded-lg border border-white/5 overflow-hidden">
+                    <button
+                      onClick={() => addToSequence(msg.name, 'send')}
+                      className="p-2 text-gray-500 hover:text-blue-400 hover:bg-blue-500/5 border-r border-white/5 transition-all active:scale-90"
+                      title="Add SEND event"
+                    >
+                      <Plus size={16} />
+                    </button>
+                    <button
+                      onClick={() => addToSequence(msg.name, 'expect')}
+                      className="p-2 text-gray-500 hover:text-green-400 hover:bg-green-500/5 transition-all active:scale-90"
+                      title="Add EXPECT event (Wait for Peer)"
+                    >
+                      <ShieldCheck size={16} />
+                    </button>
+                  </div>
                   <button
                     onClick={() => handleSendInstant(msg.name)}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 active:scale-95 shrink-0 shadow-lg shadow-blue-900/10"
@@ -159,10 +169,19 @@ const MessageList: React.FC = () => {
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1 overflow-x-auto scrollbar-hide flex items-center gap-2">
               {pendingSequence.map((s, i) => (
-                <div key={i} className="px-3 py-2 bg-blue-600/10 border border-blue-600/20 rounded-md flex items-center gap-3">
-                  <span className="text-[9px] font-black uppercase text-blue-500 whitespace-nowrap">{s.msg_name}</span>
+                <div 
+                  key={i} 
+                  className={`px-3 py-2 border rounded-md flex items-center gap-3 transition-all
+                    ${s.type === 'send' ? 'bg-blue-600/10 border-blue-600/20' : 'bg-green-600/10 border-green-600/20'}`}
+                >
+                  <div className="flex flex-col">
+                    <span className={`text-[7px] font-black uppercase ${s.type === 'send' ? 'text-blue-500' : 'text-green-500'}`}>
+                      {s.type}
+                    </span>
+                    <span className="text-[10px] font-black uppercase text-white whitespace-nowrap">{s.msg_name}</span>
+                  </div>
                   <button onClick={() => setPendingSequence(prev => prev.filter((_, idx) => idx !== i))}>
-                    <X size={10} className="text-blue-500/50 hover:text-blue-500" />
+                    <X size={10} className="text-gray-500 hover:text-white" />
                   </button>
                 </div>
               ))}
