@@ -80,9 +80,10 @@ const api = {
   runConnectSequence: (nodeId: string = "03") => {
     const events: SequenceEvent[] = [
       { type: "connect", connprivkey: nodeId, is_housekeeping: true },
-      { type: "send", connprivkey: nodeId, msg_name: "init", is_housekeeping: true },
-      { type: "expect", connprivkey: nodeId, msg_name: "init", is_housekeeping: true },
+      { type: "send", connprivkey: nodeId, msg_name: "init", is_housekeeping: false },
+      { type: "expect", connprivkey: nodeId, msg_name: "init", is_housekeeping: false },
     ];
+
     return api.runSequence(events);
   },
 

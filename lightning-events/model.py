@@ -91,9 +91,11 @@ class WsRawMsg(RawMsg):
         # Generate message from args if possible
         if self.msgtype and self.args:
             try:
-                self.message = runner.make_message(self.msgtype, **self.args)
+                from lnprototest.namespace import namespace
+                self.message = self.msgtype.generate(namespace(), **self.args)
             except Exception as e:
                 logger.error(f"Failed to generate message {getattr(self.msgtype, 'name', 'unknown')}: {e}")
+
 
         result = super().action(runner)
         try:
