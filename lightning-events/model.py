@@ -132,9 +132,15 @@ class WsRawMsg(RawMsg):
 
         result = super().action(runner)
         try:
+            import eventlet
             from extensions import socketio
+            import uuid
+            
+            # Generate a unique run ID if not present
+            run_id = getattr(runner, 'current_run_id', str(uuid.uuid4())[:8])
+            
             socketio.emit('message', {
-                'sequence_id': 'raw_seq',
+                'sequence_id': f"seq_{run_id}",
                 'direction': 'out',
                 'event': getattr(self.msgtype, 'name', 'unknown'),
                 'data': self.args if self.args else {
@@ -144,6 +150,8 @@ class WsRawMsg(RawMsg):
                 'is_housekeeping': self.is_housekeeping,
                 'timestamp': int(time.time() * 1000)
             })
+            # Small sleep to ensure the message is flushed to the client
+            eventlet.sleep(0.05)
             logger.info(f"Broadcasted raw message: {getattr(self.msgtype, 'name', 'unknown')}")
         except Exception as e:
             logger.error(f"Error broadcasting raw message: {e}")
@@ -176,9 +184,14 @@ class WsExpectMsg(ExpectMsg):
         # In lnprototest, ExpectMsg.action() handles the verification
         result = super().action(runner)
         try:
+            import eventlet
             from extensions import socketio
+            import uuid
+            
+            run_id = getattr(runner, 'current_run_id', str(uuid.uuid4())[:8])
+            
             socketio.emit('message', {
-                'sequence_id': 'expect_seq',
+                'sequence_id': f"seq_{run_id}",
                 'direction': 'in',
                 'event': getattr(self.msgtype, 'name', 'unknown'),
                 'data': self.args if self.args else {
@@ -188,10 +201,12 @@ class WsExpectMsg(ExpectMsg):
                 'is_housekeeping': self.is_housekeeping,
                 'timestamp': int(time.time() * 1000)
             })
+            eventlet.sleep(0.05)
             logger.info(f"Broadcasted expect message: {getattr(self.msgtype, 'name', 'unknown')}")
         except Exception as e:
             logger.error(f"Error broadcasting expect message: {e}")
         return result
+
 
 
 class WsDisconnect(Disconnect):
