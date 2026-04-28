@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../../store';
 import { apiClient } from '../../api/client';
-import { Eye, EyeOff, Search, Send, X, Plus, Terminal } from 'lucide-react';
+import { Eye, EyeOff, Search, Send, X, Plus, Terminal, Play, Trash2 } from 'lucide-react';
 
 const MessageList: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState("handshake");
+  const [pendingSequence, setPendingSequence] = useState<any[]>([]);
   const [customEventJson, setCustomEventJson] = useState('[\n  {\n    "type": "send",\n    "msg_name": "ping",\n    "content": {\n      "num_pong_bytes": 1,\n      "ignored": "00"\n    }\n  }\n]');
-
 
   const messageCategories = {
     handshake: [
@@ -40,13 +40,28 @@ const MessageList: React.FC = () => {
     ]
   };
 
-  const handleSend = (msgName: string) => {
+  const handleSendInstant = (msgName: string) => {
     const availableMsgs = useStore.getState().availableMessages;
     const msgDef = availableMsgs.find(m => m.type === msgName || m.id === msgName);
     useStore.getState().sendMessage(msgName, msgDef?.content || {});
   };
 
+  const addToSequence = (msgName: string) => {
+    const availableMsgs = useStore.getState().availableMessages;
+    const msgDef = availableMsgs.find(m => m.type === msgName || m.id === msgName);
+    setPendingSequence([...pendingSequence, { type: 'send', msg_name: msgName, content: msgDef?.content || {} }]);
+  };
 
+  const executeSequence = () => {
+    if (pendingSequence.length === 0) return;
+    // Always start with connect for the runner
+    const finalSequence = [
+      { type: 'connect', connprivkey: '03', is_housekeeping: true },
+      ...pendingSequence
+    ];
+    apiClient.runSequence(finalSequence as any);
+    setPendingSequence([]);
+  };
 
   const handleSendCustom = () => {
     try {
@@ -61,10 +76,14 @@ const MessageList: React.FC = () => {
   const currentMessages = selectedTab !== "custom" ? messageCategories[selectedTab as keyof typeof messageCategories] : [];
 
   return (
-    <div className="h-full flex flex-col text-white bg-black">
-      {/* Professional Integrated Header */}
-      <div className="px-5 py-4 border-b border-[#111] bg-[#050505] flex items-center">
+    <div className="h-full flex flex-col text-white bg-black relative">
+      <div className="px-5 py-4 border-b border-[#111] bg-[#050505] flex items-center justify-between">
         <span className="text-[11px] font-black uppercase tracking-[0.4em] text-gray-500">Protocol Library</span>
+        {pendingSequence.length > 0 && (
+          <span className="px-2 py-0.5 bg-blue-600 text-[9px] font-bold rounded flex items-center gap-2">
+            {pendingSequence.length} PENDING
+          </span>
+        )}
       </div>
 
       <div className="flex border-b border-[#111] bg-[#020202] overflow-x-auto scrollbar-hide">
@@ -80,7 +99,7 @@ const MessageList: React.FC = () => {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-hide">
+      <div className="flex-1 overflow-y-auto scrollbar-hide pb-32">
         {selectedTab !== "custom" ? (
           <div className="divide-y divide-[#111] border-b border-[#111]">
             {currentMessages.map((msg) => (
@@ -99,12 +118,21 @@ const MessageList: React.FC = () => {
                     {msg.description}
                   </p>
                 </div>
-                <button
-                  onClick={() => handleSend(msg.name)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 active:scale-95 shrink-0 shadow-lg shadow-blue-900/10"
-                >
-                  EXECUTE
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => addToSequence(msg.name)}
+                    className="p-2 bg-[#050505] text-gray-400 rounded-lg hover:text-white hover:bg-[#111] border border-white/5 transition-all active:scale-90"
+                    title="Add to Sequence"
+                  >
+                    <Plus size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleSendInstant(msg.name)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 active:scale-95 shrink-0 shadow-lg shadow-blue-900/10"
+                  >
+                    RUN
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -124,6 +152,39 @@ const MessageList: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Sticky Sequence Builder Footer */}
+      {pendingSequence.length > 0 && (
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-[#050505] border-t border-blue-500/20 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-[100]">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1 overflow-x-auto scrollbar-hide flex items-center gap-2">
+              {pendingSequence.map((s, i) => (
+                <div key={i} className="px-3 py-2 bg-blue-600/10 border border-blue-600/20 rounded-md flex items-center gap-3">
+                  <span className="text-[9px] font-black uppercase text-blue-500 whitespace-nowrap">{s.msg_name}</span>
+                  <button onClick={() => setPendingSequence(prev => prev.filter((_, idx) => idx !== i))}>
+                    <X size={10} className="text-blue-500/50 hover:text-blue-500" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPendingSequence([])}
+                className="p-3 bg-red-900/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"
+              >
+                <Trash2 size={16} />
+              </button>
+              <button
+                onClick={executeSequence}
+                className="flex items-center gap-3 px-6 py-3 bg-blue-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 shadow-xl shadow-blue-600/20"
+              >
+                <Play size={14} />
+                Execute Sequence
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
