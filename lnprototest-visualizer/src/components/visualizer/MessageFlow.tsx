@@ -28,7 +28,7 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ data }) => {
     const colorHex = data.type === 'runner' ? '#3b82f6' : '#f97316';
 
     return (
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center relative">
             <div
                 className={`flex flex-col items-center justify-start w-72 p-10 rounded-[2.5rem] border-2 bg-[#000] transition-all duration-700
                 ${data.isConnected ? 'opacity-100 shadow-[0_0_50px_rgba(0,0,0,0.6)]' : 'opacity-40 grayscale'}`}
@@ -52,7 +52,8 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ data }) => {
                 </div>
             </div>
 
-            <div className="w-[1px] h-[4000px] bg-dashed transition-all duration-1000 opacity-20"
+            {/* Lifeline - Absolute to prevent affecting fitView height */}
+            <div className="absolute top-[300px] w-[1px] h-[5000px] bg-dashed transition-all duration-1000 opacity-20 pointer-events-none"
                 style={{ 
                     backgroundImage: `linear-gradient(to bottom, ${colorHex} 50%, transparent 50%)`,
                     backgroundSize: '1px 16px'
@@ -62,12 +63,13 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ data }) => {
             <div className="absolute top-0 bottom-0 left-0 right-0 pointer-events-none">
                 {[...Array(100)].map((_, i) => (
                     <React.Fragment key={i}>
-                        <Handle type="source" position={data.type === 'runner' ? Position.Right : Position.Left} id={`h-${i}-src`} style={{ top: `${280 + i * 80}px`, opacity: 0 }} />
-                        <Handle type="target" position={data.type === 'runner' ? Position.Right : Position.Left} id={`h-${i}-tgt`} style={{ top: `${280 + i * 80}px`, opacity: 0 }} />
+                        <Handle type="source" position={data.type === 'runner' ? Position.Right : Position.Left} id={`h-${i}-src`} style={{ top: `${380 + i * 80}px`, opacity: 0 }} />
+                        <Handle type="target" position={data.type === 'runner' ? Position.Right : Position.Left} id={`h-${i}-tgt`} style={{ top: `${380 + i * 80}px`, opacity: 0 }} />
                     </React.Fragment>
                 ))}
             </div>
         </div>
+
     );
 };
 
