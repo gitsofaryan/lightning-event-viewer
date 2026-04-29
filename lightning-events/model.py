@@ -32,12 +32,13 @@ class LightningAppRunner(DummyRunner):
                 for f in event.fields:
                     data[f.name] = str(getattr(event, f.name, ''))
 
+            logger.info(f"EMITTING: message (recv_stream): {msg_name}")
             socketio.emit('message', {
                 'sequence_id': 'recv_stream',
                 'direction': 'in',
                 'event': msg_name,
                 'data': data,
-                'is_housekeeping': True,
+                'is_housekeeping': False,
                 'timestamp': int(time.time() * 1000)
             })
             logger.info(f"Streamed incoming message to UI (housekeeping): {msg_name}")
@@ -132,13 +133,14 @@ class WsRawMsg(RawMsg):
 
         result = super().action(runner)
         try:
-            import eventlet
+            # import eventlet
             from extensions import socketio
             import uuid
             
             # Generate a unique run ID if not present
             run_id = getattr(runner, 'current_run_id', str(uuid.uuid4())[:8])
             
+            logger.info(f"EMITTING: message (seq_{run_id}): {getattr(self.msgtype, 'name', 'unknown')}")
             socketio.emit('message', {
                 'sequence_id': f"seq_{run_id}",
                 'direction': 'out',
@@ -151,7 +153,7 @@ class WsRawMsg(RawMsg):
                 'timestamp': int(time.time() * 1000)
             })
             # Small sleep to ensure the message is flushed to the client
-            eventlet.sleep(0.05)
+            time.sleep(0.05)
             logger.info(f"Broadcasted raw message: {getattr(self.msgtype, 'name', 'unknown')}")
         except Exception as e:
             logger.error(f"Error broadcasting raw message: {e}")
@@ -199,12 +201,13 @@ class WsExpectMsg(ExpectMsg):
             raise e
 
         try:
-            import eventlet
+            # import eventlet
             from extensions import socketio
             import uuid
             
             run_id = getattr(runner, 'current_run_id', str(uuid.uuid4())[:8])
             
+            logger.info(f"EMITTING: message (seq_{run_id}): {getattr(self.msgtype, 'name', 'unknown')}")
             socketio.emit('message', {
                 'sequence_id': f"seq_{run_id}",
                 'direction': 'in',
@@ -216,7 +219,7 @@ class WsExpectMsg(ExpectMsg):
                 'is_housekeeping': self.is_housekeeping,
                 'timestamp': int(time.time() * 1000)
             })
-            eventlet.sleep(0.05)
+            time.sleep(0.05)
             logger.info(f"Broadcasted expect message: {getattr(self.msgtype, 'name', 'unknown')}")
         except Exception as e:
             logger.error(f"Error broadcasting expect message: {e}")

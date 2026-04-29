@@ -14,7 +14,6 @@ export interface MessageFlowEvent {
 
 class WebSocketService {
   private socket: Socket | null = null;
-  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private messageHandlers: ((event: MessageFlowEvent) => void)[] = [];
   private errorHandlers: ((error: { error: string }) => void)[] = [];
   private completeHandlers: (() => void)[] = [];
@@ -43,33 +42,6 @@ class WebSocketService {
     };
   }
 
-  private startHeartbeat(): void {
-    this.stopHeartbeat();
-    console.log("Starting 15s heartbeat");
-    this.heartbeatInterval = setInterval(async () => {
-      if (this.isConnected) {
-        try {
-          // Attempt both socket emit and a lightweight fetch to ensure the server stays awake
-          if (this.socket?.connected) {
-            this.socket.emit("heartbeat", { timestamp: Date.now() });
-          }
-          
-          // Use the dedicated heartbeat endpoint which is more likely to wake up a sleeping container
-          await fetch(`${API_BASE_URL}/heartbeat`).catch(() => {});
-        } catch (e) {
-          console.warn("Heartbeat failed", e);
-        }
-      }
-    }, 15000);
-  }
-
-  private stopHeartbeat(): void {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-    }
-  }
-
   public async connect(): Promise<void> {
     try {
       // If already connected and socket is active, reuse it
@@ -96,7 +68,6 @@ class WebSocketService {
         this.socket.on("connect", () => {
           console.log("Socket.IO connection established");
           this.isConnected = true;
-          this.startHeartbeat();
           resolve();
         });
 
@@ -118,20 +89,17 @@ class WebSocketService {
         this.socket.on("disconnect", () => {
           console.log("Socket.IO disconnected");
           this.isConnected = false;
-          this.stopHeartbeat();
         });
 
         this.socket.on("connect_error", (error: Error) => {
           console.error("Socket.IO connection error:", error);
           this.isConnected = false;
-          this.stopHeartbeat();
           reject(error);
         });
       });
     } catch (error) {
       console.error("Error connecting to Socket.IO:", error);
       this.isConnected = false;
-      this.stopHeartbeat();
       throw error;
     }
   }
@@ -158,7 +126,6 @@ class WebSocketService {
   }
 
   public disconnect(): void {
-    this.stopHeartbeat();
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
