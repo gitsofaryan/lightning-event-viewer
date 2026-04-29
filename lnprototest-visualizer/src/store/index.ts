@@ -196,7 +196,9 @@ export const useStore = create<State>((set) => ({
   _listenersAttached: false,
 
   connect: async () => {
-    const state = useStore.getState();
+    const currentState = useStore.getState();
+    if (currentState.connectionState === "connecting") return;
+    
     try {
       set({ connectionState: "connecting" });
 
@@ -204,7 +206,8 @@ export const useStore = create<State>((set) => ({
       await apiClient.connectWebSocket();
 
       // Attach handlers ONLY ONCE
-      if (!state._listenersAttached) {
+      if (!useStore.getState()._listenersAttached) {
+        console.log("Attaching WebSocket listeners for the first time");
         apiClient.onError((error) => {
           set((s) => ({
             messages: [
@@ -272,22 +275,9 @@ export const useStore = create<State>((set) => ({
   clearMessages: () => set({ messages: [] }),
 
   initializeConnection: async () => {
-    try {
-      set({ connectionState: "connecting" });
-      await apiClient.connectWebSocket();
-      await apiClient.runConnectSequence();
-
-      set({
-        connected: true,
-        connectionState: "connected",
-      });
-    } catch (error) {
-      console.error("Connection initialization error:", error);
-      set({
-        connected: false,
-        connectionState: "disconnected",
-      });
-    }
+    const state = useStore.getState();
+    if (state.connected || state.connectionState === "connecting") return;
+    return state.connect();
   },
 
   setMessages: (messages) => set({ messages }),

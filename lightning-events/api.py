@@ -24,6 +24,11 @@ def create_app(config_class=Config):
     def index():
         return {"status": "ok", "message": "Lightning Event Viewer API is running"}, 200
 
+    @socketio.on('heartbeat')
+    def handle_heartbeat(data):
+        logger.debug(f"Received heartbeat: {data}")
+        return {"status": "alive", "timestamp": data.get('timestamp')}
+
     return app
 
 

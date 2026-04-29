@@ -37,10 +37,10 @@ class LightningAppRunner(DummyRunner):
                 'direction': 'in',
                 'event': msg_name,
                 'data': data,
-                'is_housekeeping': False,
+                'is_housekeeping': True,
                 'timestamp': int(time.time() * 1000)
             })
-            logger.info(f"Streamed incoming message to UI: {msg_name}")
+            logger.info(f"Streamed incoming message to UI (housekeeping): {msg_name}")
         except Exception as e:
             logger.error(f"Error streaming incoming message: {e}")
         
